@@ -2,7 +2,7 @@
   {
     "id": 1,
     "title": "EchoTech",
-    "amount":"$150.00",
+    "amount":"$150.000",
     "items": [
       "Exposure to investors ",
       "Access to funding"
@@ -11,7 +11,7 @@
   {
     "id": 2,
     "title": "HealthPlus",
-    "amount":"$500.00",
+    "amount":"$500.000",
     "items": [
       "Easy to run an otige ",
       "Investment base"
@@ -20,7 +20,7 @@
   {
     "id": 3,
     "title": "EduCore",
-    "amount":"$100.00",
+    "amount":"$100.000",
     "items": [
       "Access or innovation ",
       "Startups & Details"

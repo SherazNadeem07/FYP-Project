@@ -1,7 +1,9 @@
-'use client'
+'use client';
+
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFeaturesData } from '../Redux/Slices/featureCardSlice';
+import { FaUserCircle } from 'react-icons/fa';
 
 const FeaturesSection = () => {
   const dispatch = useDispatch();
@@ -11,48 +13,67 @@ const FeaturesSection = () => {
     dispatch(fetchFeaturesData());
   }, [dispatch]);
 
+  if (loading) {
+    return (
+      <div id="feature" className="max-w-6xl mx-auto px-4 py-8 text-center text-gray-600">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div id="feature" className="max-w-6xl mx-auto px-4 py-8 text-center text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
+
   return (
-    <>
-    <div id='feature'>
-    <div  className="max-w-6xl mx-auto px-4 py-8">
-      <h1  className="text-3xl font-bold text-gray-800 mb-8">Features</h1>
-      
-      {/* Bullet points section */}
-      <div className="flex justify-between mb-6">
-        <div className="w-[48%]">
+    <div id="feature" className="max-w-6xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Features</h1>
+
+      {/* Bullet points */}
+      <div className="flex justify-between mb-6 flex-wrap gap-4">
+        <div className="w-full sm:w-[48%]">
           <ul className="list-disc pl-5 space-y-2 text-gray-700">
-            <li>Inserted & Enterpreneur Dashboard</li>
+            <li>Investor & Enterpreneur Dashboard</li>
             <li>Video Pitch Upload</li>
             <li>Funding Request & Offer System</li>
           </ul>
         </div>
-        <div className="w-[48%]">
+        <div className="w-full sm:w-[48%]">
           <ul className="list-disc pl-5 space-y-2 text-gray-700">
             <li>Pitch Events</li>
             <li>Secure Messaging</li>
           </ul>
         </div>
       </div>
-      
-      {/* Cards section */}
-      {loading && <p className="text-center py-4 text-gray-600">Loading...</p>}
-      {error && <p className="text-center py-4 text-red-500">Error: {error}</p>}
-      
+
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        {cards.map((card) => (
-          <div key={card.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">{card.title}</h3>
-            <p className="text-blue-500 text-lg font-medium mb-4">{card.amount}</p>
-            <p className="text-gray-600 mb-4">{card.items}</p>
-            <button className=" hover:bg-blue-600 border border-gray-400 cursor-pointer text-black font-medium py-2 px-4 rounded transition-colors">
+        {cards?.map((card) => (
+          <div
+            key={card.id}
+            className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"
+          >
+            <div className="flex items-center space-x-3 mb-2">
+              <FaUserCircle className="text-indigo-600 text-2xl" aria-hidden="true" />
+              <h3 className="text-xl font-semibold text-gray-900">{card.title}</h3>
+            </div>
+
+            <p className="text-indigo-500 text-lg font-semibold mb-4">{card.amount}</p>
+            <p className="text-gray-600 mb-6">{card.items}</p>
+            <button
+              aria-label={`View pitch for ${card.title}`}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-5 rounded transition-colors duration-300"
+            >
               View Pitch
             </button>
           </div>
         ))}
       </div>
     </div>
-    </div>
-    </>
   );
 };
 

@@ -4,14 +4,13 @@ export default function HowItWorks() {
     <>   
     <div id="work">
      <div className="w-full mx-auto p-4 md:p-6 font-sans max-w-4xl">
-      {/* Heading with subtle underline */}
       <h2 className="text-2xl md:text-3xl font-bold mb-6 text-gray-800 text-left pb-2 ">
         How It Works
       </h2>
       
-      {/* Tightly spaced professional steps */}
+      
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 cursor-pointer ">
-        {/* Step 1 - Account */}
+        {/* Step 1 */}
         <div className="bg-white p-4 rounded-lg border border-gray-200 hover:bg-gray-200 shadow-sm hover:shadow transition-shadow flex items-center">
           <div className="bg-blue-100 p-2 rounded-full mr-3">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -21,7 +20,7 @@ export default function HowItWorks() {
           <h3 className="text-gray-700 font-medium">Create Account</h3>
         </div>
         
-        {/* Step 2 - Plan */}
+        {/* Step */}
         <div className="bg-white p-4 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm hover:shadow transition-shadow flex items-center">
           <div className="bg-green-100 p-2 rounded-full mr-3">
             <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -31,7 +30,7 @@ export default function HowItWorks() {
           <h3 className="text-gray-700 font-medium">Submit Your Pitch</h3>
         </div>
         
-        {/* Step 3 - Comment */}
+        {/* Step 3 */}
         <div className="bg-white p-4 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm hover:shadow transition-shadow flex items-center">
           <div className="bg-purple-100 p-2 rounded-full mr-3">
             <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,7 +40,7 @@ export default function HowItWorks() {
           <h3 className="text-gray-700 font-medium">Connect With Investors</h3>
         </div>
         
-        {/* Step 4 - Contact */}
+        {/* Step 4 */}
         <div className="bg-white p-4 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm hover:shadow transition-shadow flex items-center">
           <div className="bg-orange-100 p-2 rounded-full mr-3">
             <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

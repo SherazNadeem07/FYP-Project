@@ -1,55 +1,28 @@
 import React from 'react';
-import {
-  FaFacebookF,
-  FaTwitter,
-  FaLinkedinIn,
-  FaInstagram,
-  FaEnvelope
-} from 'react-icons/fa';
 
 const Footer = () => {
-  return (
-    <footer className="bg-gray-900 text-gray-300 py-10 px-6">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
-        {/* About / Mission */}
-        <div>
-          <h3 className="text-xl font-bold text-white mb-4">PitchVerse</h3>
-          <p className="text-sm">
-            A student-powered platform connecting groundbreaking startup ideas with visionary investors. 
-            Where innovation meets opportunity.
-          </p>
-        </div>
-
-        {/* Quick Links */}
-        <div>
-          <h4 className="text-lg font-semibold text-white mb-4">Quick Links</h4>
-          <ul className="space-y-2 text-sm">
-            <li><a href="/" className="hover:text-white transition">Home</a></li>
-            <li><a href="/about" className="hover:text-white transition">About Us</a></li>
-            <li><a href="/why-choose-us" className="hover:text-white transition">Why Choose Us</a></li>
-            <li><a href="/dashboard" className="hover:text-white transition">Dashboard</a></li>
-            <li><a href="/contact" className="hover:text-white transition">Contact</a></li>
-          </ul>
-        </div>
-
-        {/* Social / Contact */}
-        <div>
-          <h4 className="text-lg font-semibold text-white mb-4">Connect with Us</h4>
-          <div className="flex space-x-4">
-            <a href="#" className="hover:text-blue-500 transition"><FaFacebookF /></a>
-            <a href="#" className="hover:text-blue-400 transition"><FaTwitter /></a>
-            <a href="#" className="hover:text-blue-300 transition"><FaInstagram /></a>
-            <a href="#" className="hover:text-blue-600 transition"><FaLinkedinIn /></a>
-            <a href="mailto:hello@pitchverse.com" className="hover:text-yellow-400 transition"><FaEnvelope /></a>
+return (
+     <footer className="bg-gradient-to-b from-[#1E1E3F] to-[#14142B] border-t border-gray-200 py-8 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-center md:text-left text-white">
+            <h3 className="text-3xl font-bold mb-2 text-white">Ready to Pitch Your Idea?</h3>
+            <p className="text-white text-2xl">Join Now </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button className="px-6 py-3 bg-white hover:bg-blue-700 text-black font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
+              Signup for Enterpreneur
+            </button>
+            <button className="px-6 py-3 border border-gray-300 hover:bg-blue-600 text-white font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
+             Join Now
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className="mt-10 border-t border-gray-700 pt-6 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} PitchVerse. All rights reserved.
+        <div className=" mt-8 pt-8 text-center text-sm text-gray-500">
+          © {new Date().getFullYear()} SharkIdea. All rights reserved.
+        </div>
       </div>
     </footer>
   );
 };
-
 export default Footer;
