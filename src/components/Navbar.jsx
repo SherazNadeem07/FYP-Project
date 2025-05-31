@@ -8,6 +8,7 @@ import {
   faBars,
   faTimes
 } from '@fortawesome/free-solid-svg-icons';
+import Link from "next/link";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -19,9 +20,9 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <FontAwesomeIcon 
-                icon={faRocket} 
-                className="text-indigo-900 text-2xl mr-2" 
+              <FontAwesomeIcon
+                icon={faRocket}
+                className="text-indigo-900 text-2xl mr-2"
                 style={{ width: '1em', height: '1em' }}
               />
               <span className="text-xl font-bold text-gray-900 whitespace-nowrap">
@@ -49,34 +50,25 @@ export default function Navbar() {
             </a>
 
             {/* Auth Buttons */}
-            <div className="flex items-center space-x-4 ml-6">
-              <a href="#" className="text-gray-600 hover:text-indigo-700 border-l border-gray-300 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
-                <FontAwesomeIcon 
-                  icon={faSignInAlt} 
-                  className="mr-2"
-                  style={{ width: '1em', height: '1em' }}
-                /> 
-                Login
-              </a>
-              <a href="#" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300 shadow-sm whitespace-nowrap">
-                <FontAwesomeIcon 
-                  icon={faUserPlus} 
-                  className="mr-2"
-                  style={{ width: '1em', height: '1em' }}
-                /> 
-                Sign Up
-              </a>
-            </div>
+            <Link href="/auth" className="text-gray-600 hover:text-indigo-700 border-l border-gray-300 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
+              <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
+              Login
+            </Link>
+            <Link href="/auth" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300 shadow-sm whitespace-nowrap">
+              <FontAwesomeIcon icon={faUserPlus} className="mr-2" />
+              Sign Up
+            </Link>
+
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            <button 
+            <button
               className="text-gray-500 hover:text-gray-900 focus:outline-none"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              <FontAwesomeIcon 
-                icon={mobileMenuOpen ? faTimes : faBars} 
+              <FontAwesomeIcon
+                icon={mobileMenuOpen ? faTimes : faBars}
                 className="text-xl"
                 style={{ width: '1em', height: '1em' }}
               />
@@ -95,32 +87,23 @@ export default function Navbar() {
             How It Works
           </a>
           <a href="#feature" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
-           Features
+            Features
           </a>
           <a href="#popular" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
             Popular Pitches
           </a>
           <a href="#choose" className="text-gray-800 hover:text-indigo-700 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
-              Why Choose Us
-            </a>
-          <div className="pt-4 border-t border-gray-200">
-            <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
-              <FontAwesomeIcon 
-                icon={faSignInAlt} 
-                className="mr-2"
-                style={{ width: '1em', height: '1em' }}
-              /> 
-              Login
-            </a>
-            <a href="#" className="block mt-2 px-3 py-2 rounded-md text-base font-medium bg-amber-500 text-white hover:bg-amber-600">
-              <FontAwesomeIcon 
-                icon={faUserPlus} 
-                className="mr-2"
-                style={{ width: '1em', height: '1em' }}
-              /> 
-              Sign Up
-            </a>
-          </div>
+            Why Choose Us
+          </a>
+          <Link href="/auth" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
+            <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
+            Login
+          </Link>
+          <Link href="/auth" className="block mt-2 px-3 py-2 rounded-md text-base font-medium bg-amber-500 text-white hover:bg-amber-600">
+            <FontAwesomeIcon icon={faUserPlus} className="mr-2" />
+            Sign Up
+          </Link>
+
         </div>
       </div>
     </nav>
