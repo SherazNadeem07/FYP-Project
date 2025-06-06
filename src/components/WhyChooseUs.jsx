@@ -5,7 +5,6 @@ export const WhyChooseUs = () => {
   return (
     <div id='choose'>
       <div className="max-w-6xl mx-auto px-6 py-16 ">
-        {/* Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-wide">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600">
@@ -94,7 +93,6 @@ export const WhyChooseUs = () => {
           </div>
         </div>
 
-        {/* CTA */}
         <div className="mt-16 text-center">
           <button className="px-10 py-4 bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 hover:from-indigo-800 hover:via-purple-800 hover:to-pink-700 text-white font-extrabold rounded-xl shadow-lg transition duration-300 transform hover:scale-105 flex items-center justify-center mx-auto">
             <FaMoneyBillWave className="mr-3 text-white" />

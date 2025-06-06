@@ -10,7 +10,7 @@ export default function EntrepreneurSidebar() {
 const notifications=2;
   // Get initials from full name
   const getInitials = (name) => {
-    if (!name) return 'JD'; // Default if no name
+    if (!name) return 'User'; 
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 

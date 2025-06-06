@@ -1,4 +1,3 @@
-// components/ContactUs.jsx
 'use client';
 import { useState } from 'react';
 import { FiMail, FiPhone, FiMapPin, FiSend } from 'react-icons/fi';
@@ -29,7 +28,6 @@ const ContactUs = () => {
     setSubmitStatus(null);
 
     try {
-      // Replace with your actual API endpoint
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: {

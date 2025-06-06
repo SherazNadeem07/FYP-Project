@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 const AuthForm = ({ mode, role }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState(''); // Add full name state
+  const [fullName, setFullName] = useState(''); 
   const [error, setError] = useState('');
   const dispatch = useDispatch();
   const router = useRouter();
@@ -38,7 +38,7 @@ const AuthForm = ({ mode, role }) => {
             user: { 
               email, 
               role,
-              fullName: response.fullName // Include full name in login response
+              fullName: response.fullName 
             },
             token: response.token
           }));
@@ -49,11 +49,10 @@ const AuthForm = ({ mode, role }) => {
           setError('Invalid email or password');
         }
       } else {
-        // Signup mode
+        
         const response = await mockSignup(email, password, role, fullName);
         
         if (response.success) {
-          // After successful signup, switch to login mode
           router.push('/auth');
         } else {
           setError(response.message || 'Signup failed');
@@ -72,7 +71,7 @@ const AuthForm = ({ mode, role }) => {
     return {
       success: !!user,
       token: user ? `mock-token-${Math.random().toString(36).substring(2)}` : null,
-      fullName: user?.fullName || '' // Return full name if user exists
+      fullName: user?.fullName || 'user dont exist' 
     };
   };
 
