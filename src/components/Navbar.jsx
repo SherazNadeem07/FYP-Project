@@ -49,6 +49,10 @@ export default function Navbar() {
               Why Choose Us
             </a>
 
+            <Link href="/contact" className="text-gray-800 hover:text-indigo-700 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
+              Contact US
+            </Link>
+
             {/* Auth Buttons */}
             <Link href="/auth" className="text-gray-600 hover:text-indigo-700 border-l border-gray-300 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
               <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
@@ -95,6 +99,10 @@ export default function Navbar() {
           <a href="#choose" className="text-gray-800 hover:text-indigo-700 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap">
             Why Choose Us
           </a>
+       
+          <Link href="/contact" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
+            Contact US
+          </Link>
           <Link href="/auth" className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50">
             <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
             Login
