@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 const AuthForm = ({ mode, role }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState(''); // Add full name state
   const [error, setError] = useState('');
   const dispatch = useDispatch();
   const router = useRouter();
@@ -15,10 +16,16 @@ const AuthForm = ({ mode, role }) => {
     e.preventDefault();
     setError('');
 
-    // password character length for signup
-    if (mode === 'signup' && password.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
+    // Validation for signup
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long.');
+        return;
+      }
+      if (!fullName.trim()) {
+        setError('Full name is required.');
+        return;
+      }
     }
 
     try {
@@ -28,7 +35,11 @@ const AuthForm = ({ mode, role }) => {
         
         if (response.success) {
           dispatch(loginSuccess({
-            user: { email, role },
+            user: { 
+              email, 
+              role,
+              fullName: response.fullName // Include full name in login response
+            },
             token: response.token
           }));
           router.push(role === 'entrepreneur'
@@ -39,7 +50,7 @@ const AuthForm = ({ mode, role }) => {
         }
       } else {
         // Signup mode
-        const response = await mockSignup(email, password, role);
+        const response = await mockSignup(email, password, role, fullName);
         
         if (response.success) {
           // After successful signup, switch to login mode
@@ -55,25 +66,24 @@ const AuthForm = ({ mode, role }) => {
 
   // Mock API functions - replace with API in future
   const mockLogin = async (email, password) => {
-    // It will check against your database
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     const user = users.find(u => u.email === email && u.password === password);
     
     return {
       success: !!user,
-      token: user ? `mock-token-${Math.random().toString(36).substring(2)}` : null
+      token: user ? `mock-token-${Math.random().toString(36).substring(2)}` : null,
+      fullName: user?.fullName || '' // Return full name if user exists
     };
   };
 
-  const mockSignup = async (email, password, role) => {
-    // It would create a user in database in future
+  const mockSignup = async (email, password, role, fullName) => {
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     
     if (users.some(u => u.email === email)) {
       return { success: false, message: 'Email already exists' };
     }
     
-    users.push({ email, password, role });
+    users.push({ email, password, role, fullName });
     localStorage.setItem('users', JSON.stringify(users));
     
     return { success: true };
@@ -81,6 +91,16 @@ const AuthForm = ({ mode, role }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {mode === 'signup' && (
+        <input
+          type="text"
+          placeholder="Full Name"
+          className="w-full p-2 border border-gray-300 rounded"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+        />
+      )}
       <input
         type="email"
         placeholder="Email"
