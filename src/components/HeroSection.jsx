@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 export default function Content() {
   return (
@@ -17,12 +18,16 @@ export default function Content() {
               Our investors have funded over 500 startups with a combined valuation of $2B+.
             </p>
             <div className="flex justify-center">
-              <button className="inline-flex text-white bg-indigo-700 hover:bg-indigo-600 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-lg transition duration-300">
+              <Link href="/auth">
+              <button className="cursor-pointer inline-flex text-white bg-indigo-700 hover:bg-indigo-600 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-lg transition duration-300">
                 Start Your Journey
               </button>
-              <button className="ml-4 inline-flex text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-md transition duration-300">
+              </Link>
+              <Link href="/auth">
+              <button className="cursor-pointer ml-4 inline-flex text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-md transition duration-300">
                 Become an Investor
               </button>
+              </Link>
             </div>
             <div className="mt-8 flex items-center space-x-4">
               <div className="flex -space-x-4">
