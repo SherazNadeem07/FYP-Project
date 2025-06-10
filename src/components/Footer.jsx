@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 const Footer = () => {
 return (
@@ -10,12 +11,16 @@ return (
             <p className="text-white text-2xl">Join Now </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
-            <button className="px-6 py-3 bg-white hover:bg-blue-700 text-black font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
+            <Link href='/auth'>
+            <button className="cursor-pointer px-6 py-3 bg-white hover:bg-blue-700 text-black font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
               Signup for Enterpreneur
             </button>
-            <button className="px-6 py-3 border border-gray-300 hover:bg-blue-600 text-white font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
+            </Link>
+            <Link href='/auth'>
+            <button className="cursor-pointer px-6 py-3 border border-gray-300 hover:bg-blue-600 text-white font-medium rounded-lg transition duration-200 shadow-sm hover:shadow-md">
              Join Now
             </button>
+            </Link>
           </div>
         </div>
         <div className=" mt-8 pt-8 text-center text-sm text-gray-500">
