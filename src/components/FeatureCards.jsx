@@ -3,29 +3,27 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFeaturesData } from '../Redux/Slices/featureCardSlice';
 import { FaUserCircle } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
 
 const FeaturesSection = () => {
   const dispatch = useDispatch();
+  const router = useRouter();
   const { cards, loading, error } = useSelector((state) => state.features);
 
   useEffect(() => {
     dispatch(fetchFeaturesData());
   }, [dispatch]);
 
+  const handleViewPitch = (card) => {
+    router.push(`/features/${card.id}`);
+  };
+
   if (loading) {
-    return (
-      <div id="feature" className="max-w-6xl mx-auto px-4 py-8 text-center text-gray-600">
-        Loading...
-      </div>
-    );
+    return <div className="max-w-6xl mx-auto px-4 py-8 text-center text-gray-600">Loading...</div>;
   }
 
   if (error) {
-    return (
-      <div id="feature" className="max-w-6xl mx-auto px-4 py-8 text-center text-red-500">
-        Error: {error}
-      </div>
-    );
+    return <div className="max-w-6xl mx-auto px-4 py-8 text-center text-red-500">Error: {error}</div>;
   }
 
   return (
@@ -62,8 +60,9 @@ const FeaturesSection = () => {
             </div>
 
             <p className="text-indigo-500 text-lg font-semibold mb-4">{card.amount}</p>
-            <p className="text-gray-600 mb-6">{card.items}</p>
+            <p className="text-gray-600 mb-6 line-clamp-3">{card.items}</p>
             <button
+              onClick={() => handleViewPitch(card)}
               aria-label={`View pitch for ${card.title}`}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-5 rounded transition-colors duration-300"
             >
