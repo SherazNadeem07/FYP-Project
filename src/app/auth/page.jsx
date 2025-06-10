@@ -42,7 +42,7 @@ const AuthPage = () => {
         </div>
 
         {/* Auth Form */}
-        <AuthForm mode={mode} role={role} />
+        <AuthForm mode={mode} role={role} toggleMode={toggleMode} />
 
         {/* Toggle Mode Paragraph */}
         <p className="text-center text-sm text-gray-600 mt-6">

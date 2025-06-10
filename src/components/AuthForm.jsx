@@ -4,9 +4,10 @@ import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../Redux/Slices/AuthSlice';
 import { useRouter } from 'next/navigation';
 
-const AuthForm = ({ mode, role }) => {
+const AuthForm = ({ mode, role, toggleMode }) => {  // Add toggleMode to props
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState(''); // New state
   const [fullName, setFullName] = useState(''); 
   const [error, setError] = useState('');
   const dispatch = useDispatch();
@@ -20,6 +21,10 @@ const AuthForm = ({ mode, role }) => {
     if (mode === 'signup') {
       if (password.length < 8) {
         setError('Password must be at least 8 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
         return;
       }
       if (!fullName.trim()) {
@@ -49,11 +54,16 @@ const AuthForm = ({ mode, role }) => {
           setError('Invalid email or password');
         }
       } else {
-        
         const response = await mockSignup(email, password, role, fullName);
         
         if (response.success) {
-          router.push('/auth');
+          // After successful signup, switch to login mode
+          toggleMode();
+          // Clear form fields
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          setFullName('');
         } else {
           setError(response.message || 'Signup failed');
         }
@@ -116,6 +126,17 @@ const AuthForm = ({ mode, role }) => {
         onChange={(e) => setPassword(e.target.value)}
         required
       />
+      
+      {mode === 'signup' && (
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          className="w-full p-2 border border-gray-300 rounded"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+        />
+      )}
 
       {error && (
         <p className="text-red-500 text-sm">{error}</p>
