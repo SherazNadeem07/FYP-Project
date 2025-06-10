@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { FaChartLine, FaLightbulb, FaHandshake, FaMoneyBillWave, FaGlobe, FaUsers, FaTrophy } from 'react-icons/fa';
 
 export const WhyChooseUs = () => {
@@ -94,10 +95,12 @@ export const WhyChooseUs = () => {
         </div>
 
         <div className="mt-16 text-center">
+          <Link href="/auth">
           <button className="px-10 py-4 bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 hover:from-indigo-800 hover:via-purple-800 hover:to-pink-700 text-white font-extrabold rounded-xl shadow-lg transition duration-300 transform hover:scale-105 flex items-center justify-center mx-auto">
             <FaMoneyBillWave className="mr-3 text-white" />
             Join the Pitch Revolution
           </button>
+          </Link>
         </div>
       </div>
     </div>
