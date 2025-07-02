@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "name": "Ali Khan",
+    "title": "Founder of SmartTech",
+    "image": "https://randomuser.me/api/portraits/men/75.jpg",
+    "bio": "Building AI tools for SMEs in Pakistan.",
+    "idea": "AI-powered bookkeeping for small businesses",
+    "product": "SmartLedger SaaS",
+    "investment": 120,
+    "profit": 30,
+    "loss": 10
+  },
+  {
+    "id": 2,
+    "name": "Sara Ahmed",
+    "title": "CEO of EcoWrap",
+    "image": "https://randomuser.me/api/portraits/women/65.jpg",
+    "bio": "Sustainable packaging for a greener world.",
+    "idea": "Biodegradable wrapping materials",
+    "product": "EcoWrap Sheets",
+    "investment": 200,
+    "profit": 70,
+    "loss": 20
+  },
+  {
+    "id": 3,
+    "name": "Usman Tariq",
+    "title": "Co-founder of AgriNext",
+    "image": "https://randomuser.me/api/portraits/men/51.jpg",
+    "bio": "Transforming agriculture with IoT.",
+    "idea": "IoT sensors for irrigation optimization",
+    "product": "AgriSense Devices",
+    "investment": 150,
+    "profit": 55,
+    "loss": 15
+  }
+]

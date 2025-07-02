@@ -1,30 +1,56 @@
 [
   {
     "id": 1,
-    "title": "EchoTech",
-    "amount":"$150.000",
-    "items": [
-      "Exposure to investors ",
-      "Access to funding"
-    ]
+    "title": "John Doe",
+    "amount": "$500K Invested",
+    "items": "Specializes in SaaS startups. Previously invested in 20+ companies.",
+    "bio": "John is a serial investor focused on early-stage SaaS businesses.",
+    "sector": "SaaS & Tech",
+    "location": "San Francisco, CA",
+    "email": "john.doe@example.com",
+    "ticketSize": "$150K",
+    "preferences": "SaaS, B2B, Cloud Services",
+    "funded": 22,
+    "lastActive": "July 1, 2025",
+    "portfolio": ["CloudDesk", "TeamHub", "SaaSly"],
+    "linkedin": "https://linkedin.com/in/johndoe",
+    "twitter": "https://twitter.com/johndoe",
+    "image": "https://randomuser.me/api/portraits/men/75.jpg"
   },
   {
     "id": 2,
-    "title": "HealthPlus",
-    "amount":"$500.000",
-    "items": [
-      "Easy to run an otige ",
-      "Investment base"
-    ]
+    "title": "Fatima Aslam",
+    "amount": "$300K Invested",
+    "items": "Focused on green tech and sustainability startups.",
+    "bio": "Fatima has a passion for clean energy and planet-first innovation.",
+    "sector": "Green Tech",
+    "location": "Lahore, PK",
+    "email": "fatima.aslam@example.com",
+    "ticketSize": "$100K",
+    "preferences": "Clean Energy, Sustainable Packaging",
+    "funded": 12,
+    "lastActive": "June 28, 2025",
+    "portfolio": ["EcoPack", "GreenVolt", "Waterly"],
+    "linkedin": "https://linkedin.com/in/fatimaaslam",
+    "twitter": "https://twitter.com/fatimaaslam",
+    "image": "https://randomuser.me/api/portraits/women/65.jpg"
   },
   {
     "id": 3,
-    "title": "EduCore",
-    "amount":"$100.000",
-    "items": [
-      "Access or innovation ",
-      "Startups & Details"
-     
-    ]
+    "title": "Michael Lee",
+    "amount": "$800K Invested",
+    "items": "FinTech expert and ex-Goldman Sachs VC advisor.",
+    "bio": "Michael mentors founders and guides investment strategy in FinTech.",
+    "sector": "FinTech",
+    "location": "Singapore",
+    "email": "michael.lee@example.com",
+    "ticketSize": "$250K",
+    "preferences": "Payments, Lending Platforms, Crypto",
+    "funded": 30,
+    "lastActive": "June 30, 2025",
+    "portfolio": ["PayNet", "LoanMate", "CoinWatch"],
+    "linkedin": "https://linkedin.com/in/michaellee",
+    "twitter": "https://twitter.com/michaellee",
+    "image": "https://randomuser.me/api/portraits/men/51.jpg"
   }
 ]

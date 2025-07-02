@@ -13,11 +13,17 @@ const AuthPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-indigo-900 mb-6">
-          {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
+        <h2 className="text-2xl font-bold text-center text-indigo-900 mb-2 capitalize">
+          {mode === 'login' ? 'Login' : 'Sign Up'} as {role}
         </h2>
 
-        {/* Role Toggle (Entrepreneur / Investor) */}
+        <p className="text-sm text-center text-gray-500 mb-6">
+          {role === 'entrepreneur'
+            ? 'Pitch your ideas, find investors, and grow your startup.'
+            : 'Explore innovative ideas and invest in the future.'}
+        </p>
+
+        {/* Role Toggle */}
         <div className="flex justify-center gap-4 mb-6">
           <button
             onClick={() => setRole('entrepreneur')}
@@ -41,10 +47,10 @@ const AuthPage = () => {
           </button>
         </div>
 
-        {/* Auth Form */}
+        {/* Form */}
         <AuthForm mode={mode} role={role} toggleMode={toggleMode} />
 
-        {/* Toggle Mode Paragraph */}
+        {/* Toggle login/signup */}
         <p className="text-center text-sm text-gray-600 mt-6">
           {mode === 'login' ? (
             <>
