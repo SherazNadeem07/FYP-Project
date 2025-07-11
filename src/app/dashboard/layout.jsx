@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }) {
       // Block going back to /auth after login
       window.history.pushState(null, '', window.location.href);
       const handlePopState = () => {
-        router.replace(window.location.href); // Stay on same page
+        router.replace(window.location.href); 
       };
       window.addEventListener('popstate', handlePopState);
 

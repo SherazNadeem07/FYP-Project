@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   FaChartLine,
@@ -11,10 +11,81 @@ import {
   FaTrophy,
   FaRocket
 } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 
 export const WhyChooseUs = () => {
+  const [scrollDir, setScrollDir] = useState('down');
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    const handleScroll = () => {
+      setScrollDir(window.scrollY > lastScrollY ? 'down' : 'up');
+      lastScrollY = window.scrollY;
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const bounceVariant = {
+    hidden: { opacity: 0, y: scrollDir === 'down' ? 60 : -60 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        bounce: 0.4,
+        duration: 0.8,
+      },
+    },
+  };
+
+  const features = [
+    {
+      title: 'Launch-Ready for Startups',
+      icon: <FaRocket className="text-white text-xl" />,
+      color: 'indigo',
+      description:
+        'Entrepreneurs can pitch, connect, and get funded — all in one intuitive dashboard with zero platform fees.',
+    },
+    {
+      title: 'Built by Founders, for Founders',
+      icon: <FaLightbulb className="text-white text-xl" />,
+      color: 'purple',
+      description:
+        'Our team understands real startup pain — because we’re founders too. We built what we wish we had.',
+    },
+    {
+      title: 'Modern Tech Stack',
+      icon: <FaGlobe className="text-white text-xl" />,
+      color: 'green',
+      description:
+        'Next.js, Node.js, PostgreSQL, secure auth, real-time updates — everything you expect from a premium platform.',
+    },
+    {
+      title: 'Curated Pitch Access',
+      icon: <FaUsers className="text-white text-xl" />,
+      color: 'yellow',
+      description:
+        'Investors get access to curated, screened ideas from early-stage founders with clear value props and market plans.',
+    },
+    {
+      title: 'Verified, Fair, Transparent',
+      icon: <FaHandshake className="text-white text-xl" />,
+      color: 'red',
+      description:
+        'All profiles are verified. Every pitch is visible. No hidden fees. Just ethical dealmaking and data-backed profiles.',
+    },
+    {
+      title: 'Built to Scale Together',
+      icon: <FaTrophy className="text-white text-xl" />,
+      color: 'blue',
+      description:
+        'SharkIdea evolves with you. Today you fund a pitch — tomorrow you co-lead a pre-seed round. Let’s scale ideas together.',
+    },
+  ];
+
   return (
-    <div id='choose'>
+    <div id="choose">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-wide">
@@ -30,56 +101,26 @@ export const WhyChooseUs = () => {
 
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-
-          {/* Entrepreneur-Focused Features */}
-          <div className="bg-indigo-50 p-8 rounded-2xl shadow-md border border-indigo-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-indigo-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaRocket className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-indigo-900 mb-3">Launch-Ready for Startups</h3>
-            <p className="text-indigo-700">Entrepreneurs can pitch, connect, and get funded — all in one intuitive dashboard with zero platform fees.</p>
-          </div>
-
-          <div className="bg-purple-50 p-8 rounded-2xl shadow-md border border-purple-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-purple-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaLightbulb className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-purple-900 mb-3">Built by Founders, for Founders</h3>
-            <p className="text-purple-700">Our team understands real startup pain — because we’re founders too. We built what we wish we had.</p>
-          </div>
-
-          <div className="bg-green-50 p-8 rounded-2xl shadow-md border border-green-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-green-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaGlobe className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-green-900 mb-3">Modern Tech Stack</h3>
-            <p className="text-green-700">Next.js, Node.js, PostgreSQL, secure auth, real-time updates — everything you expect from a premium platform.</p>
-          </div>
-
-          {/* Investor-Focused Features */}
-          <div className="bg-yellow-50 p-8 rounded-2xl shadow-md border border-yellow-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-yellow-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaUsers className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-yellow-900 mb-3">Curated Pitch Access</h3>
-            <p className="text-yellow-700">Investors get access to curated, screened ideas from early-stage founders with clear value props and market plans.</p>
-          </div>
-
-          <div className="bg-red-50 p-8 rounded-2xl shadow-md border border-red-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-red-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaHandshake className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-red-900 mb-3">Verified, Fair, Transparent</h3>
-            <p className="text-red-700">All profiles are verified. Every pitch is visible. No hidden fees. Just ethical dealmaking and data-backed profiles.</p>
-          </div>
-
-          <div className="bg-blue-50 p-8 rounded-2xl shadow-md border border-blue-200 group hover:shadow-xl transition">
-            <div className="w-14 h-14 bg-blue-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition">
-              <FaTrophy className="text-white text-xl" />
-            </div>
-            <h3 className="text-xl font-semibold text-blue-900 mb-3">Built to Scale Together</h3>
-            <p className="text-blue-700">SharkIdea evolves with you. Today you fund a pitch — tomorrow you co-lead a pre-seed round. Let’s scale ideas together.</p>
-          </div>
+          {features.map((feature, i) => (
+            <motion.div
+              key={i}
+              variants={bounceVariant}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.3 }}
+              className={`bg-${feature.color}-50 p-8 rounded-2xl shadow-md border border-${feature.color}-200 group hover:shadow-xl transition`}
+            >
+              <div
+                className={`w-14 h-14 bg-${feature.color}-600 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition`}
+              >
+                {feature.icon}
+              </div>
+              <h3 className={`text-xl font-semibold text-${feature.color}-900 mb-3`}>
+                {feature.title}
+              </h3>
+              <p className={`text-${feature.color}-700`}>{feature.description}</p>
+            </motion.div>
+          ))}
         </div>
 
         {/* CTA */}

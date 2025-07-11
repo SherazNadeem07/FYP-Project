@@ -11,13 +11,13 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-indigo-900 mb-2 capitalize">
+    <div className="min-h-screen flex items-center justify-center bg-[#2C2C2C] p-6 text-[#E8E8E8]">
+      <div className="bg-[#1F1F1F] p-8 rounded-2xl border border-[#3A3A3A] shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold text-center text-white mb-2 capitalize">
           {mode === 'login' ? 'Login' : 'Sign Up'} as {role}
         </h2>
 
-        <p className="text-sm text-center text-gray-500 mb-6">
+        <p className="text-sm text-center text-[#B3B3B3] mb-6">
           {role === 'entrepreneur'
             ? 'Pitch your ideas, find investors, and grow your startup.'
             : 'Explore innovative ideas and invest in the future.'}
@@ -29,8 +29,8 @@ const AuthPage = () => {
             onClick={() => setRole('entrepreneur')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition duration-300 ${
               role === 'entrepreneur'
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-[#D0140F] text-white shadow'
+                : 'bg-[#3A3A3A] text-[#E8E8E8] hover:bg-[#444]'
             }`}
           >
             Entrepreneur
@@ -39,25 +39,25 @@ const AuthPage = () => {
             onClick={() => setRole('investor')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition duration-300 ${
               role === 'investor'
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-[#D0140F] text-white shadow'
+                : 'bg-[#3A3A3A] text-[#E8E8E8] hover:bg-[#444]'
             }`}
           >
             Investor
           </button>
         </div>
 
-        {/* Form */}
+        {/* Auth Form */}
         <AuthForm mode={mode} role={role} toggleMode={toggleMode} />
 
         {/* Toggle login/signup */}
-        <p className="text-center text-sm text-gray-600 mt-6">
+        <p className="text-center text-sm text-[#B3B3B3] mt-6">
           {mode === 'login' ? (
             <>
               Don’t have an account?{' '}
               <button
                 onClick={toggleMode}
-                className="text-indigo-600 font-medium hover:underline"
+                className="text-[#D0140F] font-medium hover:underline cursor-pointer"
               >
                 Sign Up
               </button>
@@ -67,7 +67,7 @@ const AuthPage = () => {
               Already have an account?{' '}
               <button
                 onClick={toggleMode}
-                className="text-indigo-600 font-medium hover:underline"
+                className="text-[#D0140F] font-medium hover:underline cursor-pointer"
               >
                 Login
               </button>

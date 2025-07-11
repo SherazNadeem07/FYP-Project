@@ -1,75 +1,90 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FaStar } from 'react-icons/fa';
 
 export default function Content() {
   const router = useRouter();
+  const [scale, setScale] = useState(1);
 
-  const handleStartJourney = () => {
-    router.push("/entrepreneurs");
-  };
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
 
-  const handleBecomeInvestor = () => {
-    router.push("/auth");
-  };
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollingDown = currentScrollY > lastScrollY;
+
+      setScale(scrollingDown ? 0.95 : 1); // zoom out on scroll down, zoom in on scroll up
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleStartJourney = () => router.push('/entrepreneurs');
+  const handleBecomeInvestor = () => router.push('/auth');
 
   return (
-    <section className="bg-gradient-to-b from-[#1E1E3F] to-[#14142B] text-white body-font">
-      <div className="container mx-auto flex px-5 py-24 md:flex-row flex-col items-center">
-        <div className="lg:flex-grow md:w-1/2 lg:pr-24 md:pr-16 flex flex-col md:items-start md:text-left mb-16 md:mb-0 items-center text-center">
-          <h1 className="title-font sm:text-4xl text-3xl mb-4 font-extrabold tracking-tight leading-tight">
-            Pitch Your Dream Attract Investors
-            <br className="hidden lg:inline-block" />
-            Build the Future
+    <section
+      className="bg-white text-gray-900 py-20 transition-transform duration-500 ease-in-out"
+      style={{ transform: `scale(${scale})` }}
+    >
+      <div className="container mx-auto px-6 lg:px-16 flex flex-col-reverse md:flex-row items-center gap-12">
+        {/* Left Content */}
+        <div className="w-full md:w-1/2">
+          <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight mb-4">
+            Pitch your dream, <span className="text-[#D0140F]">Build the future</span>
           </h1>
-          <p className="mb-8 leading-relaxed text-indigo-300 max-w-lg">
-            Join the platform where ambitious pitchers meet serious investors.
-            Get the funding, mentorship, and exposure your startup needs to succeed.
-            Our investors have funded over 500 startups with a combined valuation of $2B+.
+          <p className="text-gray-600 text-lg mb-6 max-w-md">
+            Join the platform where ambitious pitchers meet serious investors. Get the funding,
+            mentorship, and exposure your startup needs to succeed.
           </p>
-          <div className="flex justify-center">
+          <div className="flex justify-start">
             <button
               onClick={handleStartJourney}
-              className="cursor-pointer inline-flex text-white bg-indigo-700 hover:bg-indigo-600 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-lg transition duration-300"
+              className="cursor-pointer inline-flex text-white bg-indigo-700 hover:bg-[#D0140F] hover:text-white border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-lg transition duration-300"
             >
               Start Your Journey
             </button>
             <button
               onClick={handleBecomeInvestor}
-              className="cursor-pointer ml-4 inline-flex text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-md transition duration-300"
+              className="cursor-pointer ml-4 inline-flex text-indigo-700 bg-indigo-100 hover:bg-[#D0140F] hover:text-white border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-md transition duration-300"
             >
               Become an Investor
             </button>
           </div>
-          <div className="mt-8 flex items-center space-x-4">
-            <div className="flex -space-x-4">
-              <img
-                className="w-12 h-12 border-2 border-indigo-700 rounded-full shadow-md"
-                src="https://randomuser.me/api/portraits/women/44.jpg"
-                alt="investor"
-              />
-              <img
-                className="w-12 h-12 border-2 border-indigo-700 rounded-full shadow-md"
-                src="https://randomuser.me/api/portraits/men/32.jpg"
-                alt="investor"
-              />
-              <img
-                className="w-12 h-12 border-2 border-indigo-700 rounded-full shadow-md"
-                src="https://randomuser.me/api/portraits/women/68.jpg"
-                alt="investor"
-              />
+
+          {/* Stats */}
+          <div className="mt-8 flex flex-wrap gap-8 text-sm text-gray-700">
+            <div>
+              <h3 className="text-xl font-bold text-[#D0140F]">75.2%</h3>
+              <p>Average daily activity</p>
             </div>
-            <span className="text-indigo-400 text-sm font-medium">
-              Join 500+ investors actively funding startups
-            </span>
+            <div>
+              <h3 className="text-xl font-bold text-[#D0140F]">~20k</h3>
+              <p>Average daily users</p>
+            </div>
+            <div className="flex items-center">
+              <div className="flex text-yellow-500 mr-2">
+                {[...Array(4)].map((_, i) => (
+                  <FaStar key={i} />
+                ))}
+                <FaStar className="text-gray-300" />
+              </div>
+              <span className="text-gray-800 font-medium">4.5</span>
+              <p className="ml-2 text-gray-600">Average user rating</p>
+            </div>
           </div>
         </div>
-        <div className="lg:max-w-lg lg:w-full md:w-1/2 w-5/6">
+
+        {/* Right Image Side */}
+        <div className="w-full md:w-1/2 flex justify-center relative">
           <img
-            className="object-cover object-center rounded-xl shadow-2xl border-4 border-indigo-700"
-            alt="Startup pitch"
-            src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?ixlib=rb-4.0.3&auto=format&fit=crop&w=720&h=600"
+            src="/Business.png"
+            alt="3D UI Design"
+            className="w-full max-w-md lg:max-w-lg object-contain drop-shadow-xl"
           />
         </div>
       </div>

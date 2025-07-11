@@ -12,7 +12,7 @@ export default function ProfilePage() {
     bio: 'Tech enthusiast with 5+ years of experience in building startups.',
     website: 'https://johndoe.com',
     linkedin: 'https://linkedin.com/in/johndoe',
-    twitter: 'https://twitter.com/johndoe'
+    twitter: 'https://twitter.com/johndoe',
   });
   const [profileImage, setProfileImage] = useState(null);
 
@@ -38,40 +38,44 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="bg-[#2C2C2C] p-6 text-[#E8E8E8]">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Your Profile</h1>
-        {isEditing ? (
-          <div className="flex space-x-2">
+    <div className="bg-[#2C2C2C] px-4 py-6 sm:px-6 lg:px-10 text-[#E8E8E8] rounded-lg">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">Your Profile</h1>
+        <div className="flex gap-2 flex-wrap">
+          {isEditing ? (
+            <>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-1 bg-[#D0140F] hover:bg-[#b9120d] text-white px-3 py-1 rounded-md"
+              >
+                <FiSave />
+                <span>Save</span>
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="flex items-center gap-1 bg-[#3F3F3F] text-[#E8E8E8] px-3 py-1 rounded-md"
+              >
+                <FiX />
+                <span>Cancel</span>
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleSave}
-              className="flex items-center space-x-1 bg-[#D0140F] hover:bg-[#b9120d] text-white px-3 py-1 rounded-md"
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1 bg-[#D0140F] hover:bg-[#b9120d] text-white px-3 py-1 rounded-md"
             >
-              <FiSave />
-              <span>Save</span>
+              <FiEdit />
+              <span>Edit Profile</span>
             </button>
-            <button
-              onClick={() => setIsEditing(false)}
-              className="flex items-center space-x-1 bg-[#3F3F3F] text-[#E8E8E8] px-3 py-1 rounded-md"
-            >
-              <FiX />
-              <span>Cancel</span>
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center space-x-1 bg-[#D0140F] hover:bg-[#b9120d] text-white px-3 py-1 rounded-md"
-          >
-            <FiEdit />
-            <span>Edit Profile</span>
-          </button>
-        )}
+          )}
+        </div>
       </div>
 
+      {/* Main Content */}
       <div className="flex flex-col md:flex-row gap-8">
         {/* Profile Image */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center md:items-start">
           <div className="relative">
             <div className="w-32 h-32 rounded-full bg-[#383838] flex items-center justify-center overflow-hidden">
               {profileImage ? (
@@ -93,7 +97,9 @@ export default function ProfilePage() {
             )}
           </div>
           {isEditing && (
-            <p className="text-sm text-[#9ca3af] mt-2">Click to upload new photo</p>
+            <p className="text-sm text-[#9ca3af] mt-2 text-center md:text-left">
+              Click to upload new photo
+            </p>
           )}
         </div>
 
@@ -130,7 +136,7 @@ export default function ProfilePage() {
             </div>
           ))}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {['email', 'phone'].map((key) => (
               <div key={key}>
                 <label className="block text-sm font-medium text-[#B3B3B3] capitalize">{key}</label>
@@ -152,7 +158,7 @@ export default function ProfilePage() {
           {/* Social Links */}
           <div>
             <h3 className="text-sm font-medium text-[#B3B3B3] mb-2">Social Links</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {['website', 'linkedin', 'twitter'].map((key) => (
                 <div key={key}>
                   <label className="block text-sm font-medium text-[#B3B3B3] capitalize">{key}</label>
@@ -169,7 +175,7 @@ export default function ProfilePage() {
                       href={profile[key]}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#D0140F] hover:underline"
+                      className="text-[#D0140F] hover:underline break-words"
                     >
                       {profile[key]}
                     </a>

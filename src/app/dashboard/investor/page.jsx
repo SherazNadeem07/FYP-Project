@@ -50,59 +50,51 @@ export default function InvestorDashboard() {
   const submitInvestment = (e) => {
     e.preventDefault();
     console.log(`Investing $${investmentAmount} in ${selectedPitch.title}`);
-    // API call would go here
     setSelectedPitch(null);
     setInvestmentAmount('');
+    setMessage('');
   };
 
   return (
-    <>
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Discover Pitches</h1>
-      
-      {/* Pitches Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="px-4 sm:px-6 lg:px-12 py-8  text-[#F0F0F0] overflow-x-hidden">
+      {/* Header */}
+      <h1 className="text-2xl sm:text-3xl font-bold text-white">Investor Dashboard</h1>
+
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {pitches.map(pitch => (
-          <div key={pitch.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-xl font-bold mb-2">{pitch.title}</h2>
-            <p className="text-gray-600 mb-4">{pitch.description}</p>
-            
-            <div className="flex justify-between mb-3">
-              <div className="flex items-center text-gray-700">
-                <FiDollarSign className="mr-1" />
+          <div key={pitch.id} className="bg-[#252525] p-5 sm:p-6 rounded-lg border border-[#3A3A3A] shadow-sm">
+            <h2 className="text-lg sm:text-xl font-bold mb-2 text-white">{pitch.title}</h2>
+            <p className="text-[#AAAAAA] mb-4 text-sm sm:text-base">{pitch.description}</p>
+
+            <div className="flex justify-between mb-3 text-sm">
+              <div className="flex items-center text-[#DDDDDD]">
+                <FiDollarSign className="mr-1 text-[#D0140F]" />
                 <span>{pitch.fundingGoal}</span>
               </div>
-              <div className="flex items-center text-gray-700">
-                <FiPercent className="mr-1" />
+              <div className="flex items-center text-[#DDDDDD]">
+                <FiPercent className="mr-1 text-[#D0140F]" />
                 <span>{pitch.equityOffered}</span>
               </div>
             </div>
-            
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-sm text-gray-500">By {pitch.entrepreneur}</span>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                pitch.status === 'Live' ? 'bg-green-100 text-green-800' : 
-                pitch.status === 'Funded' ? 'bg-blue-100 text-blue-800' : 
-                'bg-yellow-100 text-yellow-800'
-              }`}>
+
+            <div className="flex justify-between items-center mb-4 text-xs sm:text-sm">
+              <span className="text-[#888888]">By {pitch.entrepreneur}</span>
+              <span className="px-2 py-1 rounded-full border border-[#00FFA3] text-[#00FFA3] bg-[#2A2A2A]">
                 {pitch.status}
               </span>
             </div>
-            
-            <div className="flex justify-between">
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mt-4">
               <button 
                 onClick={() => handleInvest(pitch.id)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="bg-[#D0140F] text-white px-4 py-2 rounded-lg hover:bg-[#B0100D] text-sm w-full sm:w-auto"
               >
                 View Pitch
               </button>
-              <div className="flex items-center space-x-2">
-                <span className="flex items-center text-gray-500 text-sm">
-                  <FiEye className="mr-1" /> 124
-                </span>
-                <span className="flex items-center text-gray-500 text-sm">
-                  <FiMessageSquare className="mr-1" /> {pitch.comments}
-                </span>
+              <div className="flex items-center justify-center sm:justify-end gap-3 text-sm text-[#AAAAAA]">
+                <span className="flex items-center"><FiEye className="mr-1" />124</span>
+                <span className="flex items-center"><FiMessageSquare className="mr-1" />{pitch.comments}</span>
               </div>
             </div>
           </div>
@@ -111,45 +103,45 @@ export default function InvestorDashboard() {
 
       {/* Investment Modal */}
       {selectedPitch && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Invest in {selectedPitch.title}</h2>
-            
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1A1A1A] text-[#F0F0F0] rounded-lg p-4 sm:p-6 w-full max-w-md border border-[#3A3A3A]">
+            <h2 className="text-lg sm:text-xl font-bold mb-4">Invest in {selectedPitch.title}</h2>
+
             <form onSubmit={submitInvestment}>
               <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Investment Amount ($)</label>
+                <label className="block text-[#AAAAAA] mb-2 text-sm">Investment Amount ($)</label>
                 <input
                   type="number"
                   value={investmentAmount}
                   onChange={(e) => setInvestmentAmount(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 bg-[#2A2A2A] text-[#F0F0F0] border border-[#3A3A3A] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
                   placeholder="Enter amount"
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Message (Optional)</label>
+                <label className="block text-[#AAAAAA] mb-2 text-sm">Message (Optional)</label>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
+                  className="w-full p-2 bg-[#2A2A2A] text-[#F0F0F0] border border-[#3A3A3A] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
                   rows="3"
                   placeholder="Add a message to the entrepreneur"
                 />
               </div>
-              
-              <div className="flex justify-end space-x-3">
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedPitch(null)}
-                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100"
+                  className="w-full sm:w-auto px-4 py-2 border border-[#3A3A3A] rounded-lg text-[#F0F0F0] bg-[#252525] hover:bg-[#2A2A2A]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="w-full sm:w-auto px-4 py-2 bg-[#D0140F] text-white rounded-lg hover:bg-[#B0100D]"
                 >
                   Submit Investment
                 </button>
@@ -158,9 +150,12 @@ export default function InvestorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Other Pages */}
+      <div className="space-y-12">
+        <InvestmentsPage />
+        <AnalyticsPage />
+      </div>
     </div>
-    <InvestmentsPage/>
-    <AnalyticsPage/>
-    </>
   );
 }

@@ -1,28 +1,44 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import EntrepreneurSidebar from '../EntrepreneurNavbar';
+import { FiMenu } from 'react-icons/fi';
 
 export default function EntrepreneurLayout({ children }) {
   const router = useRouter();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Push current URL to clear auth page history
     window.history.pushState(null, '', window.location.href);
-
     const handlePopState = () => {
-      // Prevent going back to login/signup
       router.replace(window.location.href);
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <EntrepreneurSidebar />
-      <main className="flex-1 p-8 ml-64">{children}</main>
+    <div
+      className="min-h-screen flex bg-cover bg-center bg-no-repeat relative"
+      style={{ backgroundImage: "url('/dashboard.png')" }}
+    >
+      {/* Sidebar */}
+      <EntrepreneurSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+
+      {/* Mobile Menu Button */}
+      {!isSidebarOpen && (
+        <button
+          className="md:hidden fixed top-4 left-4 z-50 bg-[#D0140F] text-white p-2 rounded-md"
+          onClick={() => setIsSidebarOpen(true)}
+        >
+          <FiMenu className="text-xl" />
+        </button>
+      )}
+
+      {/* Main Content Area */}
+      <main className="flex-1 w-full mt-14 md:mt-0 md:ml-64 p-4 sm:p-6 md:p-8 transition-all duration-300">
+        {children}
+      </main>
     </div>
   );
 }

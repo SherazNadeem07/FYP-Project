@@ -7,7 +7,7 @@ export default function MessagesPage() {
     { id: 1, name: 'Investor One', lastMessage: 'Hi there! I liked your pitch', unread: true },
     { id: 2, name: 'Investor Two', lastMessage: 'Can we schedule a meeting?', unread: false },
   ]);
-  
+
   const [activeConversation, setActiveConversation] = useState(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -31,7 +31,7 @@ export default function MessagesPage() {
       sender: 'Me',
       text: message,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true
+      isMe: true,
     };
 
     setMessages([...messages, newMessage]);
@@ -43,24 +43,25 @@ export default function MessagesPage() {
         sender: activeConversation.name,
         text: 'Thanks for your response. Let me check...',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isMe: false
+        isMe: false,
       };
-      setMessages(prev => [...prev, reply]);
-      setNotifications(prev => prev + 1);
+      setMessages((prev) => [...prev, reply]);
+      setNotifications((prev) => prev + 1);
     }, 1000);
   };
 
   const markAsRead = (convoId) => {
-    setConversations(conversations.map(convo => 
+    setConversations(conversations.map((convo) =>
       convo.id === convoId ? { ...convo, unread: false } : convo
     ));
-    setNotifications(prev => prev - 1);
+    setNotifications((prev) => prev - 1);
   };
 
   return (
-    <div className="bg-[#2C2C2C] p-6 rounded-lg shadow-sm h-full text-[#E8E8E8]">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Messages</h1>
+    <div className="bg-[#2C2C2C] p-4 sm:p-6 rounded-lg shadow-sm text-[#E8E8E8] min-h-[80vh]">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Messages</h1>
         <div className="relative">
           <FiBell className="text-2xl text-[#cecbcb]" />
           {notifications > 0 && (
@@ -70,17 +71,18 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
-      
-      <div className="flex h-[calc(100%-60px)]">
+
+      {/* Main Layout */}
+      <div className="flex flex-col md:flex-row gap-4 h-[70vh]">
         {/* Left Sidebar */}
-        <div className="w-1/3 border-r border-[#3F3F3F] pr-4">
-          <div className="space-y-2 h-full overflow-y-auto">
-            {conversations.map(convo => (
-              <div 
+        <div className="md:w-1/3 w-full border border-[#3F3F3F] rounded-lg overflow-y-auto">
+          <div className="space-y-2 p-4">
+            {conversations.map((convo) => (
+              <div
                 key={convo.id}
                 className={`p-3 rounded-lg cursor-pointer transition ${
-                  activeConversation?.id === convo.id 
-                    ? 'bg-[#3A3A3A]' 
+                  activeConversation?.id === convo.id
+                    ? 'bg-[#3A3A3A]'
                     : 'hover:bg-[#4A4A4A]'
                 }`}
                 onClick={() => {
@@ -92,7 +94,11 @@ export default function MessagesPage() {
                   <h3 className="font-medium text-white">{convo.name}</h3>
                   {convo.unread && <span className="h-2 w-2 bg-[#D0140F] rounded-full"></span>}
                 </div>
-                <p className={`text-sm truncate ${convo.unread ? 'font-medium text-[#E8E8E8]' : 'text-[#9ca3af]'}`}>
+                <p
+                  className={`text-sm truncate ${
+                    convo.unread ? 'font-medium text-[#E8E8E8]' : 'text-[#9ca3af]'
+                  }`}
+                >
                   {convo.lastMessage}
                 </p>
               </div>
@@ -101,20 +107,32 @@ export default function MessagesPage() {
         </div>
 
         {/* Right Chat Section */}
-        <div className="w-2/3 pl-4 flex flex-col">
+        <div className="md:w-2/3 w-full flex flex-col border border-[#3F3F3F] rounded-lg p-4">
           {activeConversation ? (
             <>
+              {/* Chat Header */}
               <div className="border-b border-[#3F3F3F] pb-2 mb-4">
                 <h2 className="text-lg font-semibold">{activeConversation.name}</h2>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-                {messages.map(msg => (
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+                {messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${msg.isMe ? 'bg-[#D0140F] text-white' : 'bg-[#383838]'}`}>
-                      {!msg.isMe && <p className="text-xs font-medium text-[#cecbcb]">{msg.sender}</p>}
+                    <div
+                      className={`max-w-[80%] sm:max-w-md px-4 py-2 rounded-lg ${
+                        msg.isMe ? 'bg-[#D0140F] text-white' : 'bg-[#383838]'
+                      }`}
+                    >
+                      {!msg.isMe && (
+                        <p className="text-xs font-medium text-[#cecbcb]">{msg.sender}</p>
+                      )}
                       <p>{msg.text}</p>
-                      <p className={`text-xs mt-1 ${msg.isMe ? 'text-[#cecbcb]' : 'text-[#7F7F7F]'}`}>
+                      <p
+                        className={`text-xs mt-1 ${
+                          msg.isMe ? 'text-[#cecbcb]' : 'text-[#7F7F7F]'
+                        }`}
+                      >
                         {msg.time}
                       </p>
                     </div>
@@ -122,6 +140,7 @@ export default function MessagesPage() {
                 ))}
               </div>
 
+              {/* Message Input */}
               <form onSubmit={handleSendMessage} className="mt-auto">
                 <div className="flex items-center">
                   <input
@@ -131,8 +150,8 @@ export default function MessagesPage() {
                     placeholder="Type your message..."
                     className="flex-1 bg-[#1c1c1c] border border-[#676767] rounded-l-lg p-2 text-white placeholder-[#575757] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
                   />
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="bg-[#D0140F] text-white p-2 rounded-r-lg hover:bg-[#b9120d]"
                   >
                     <FiSend />

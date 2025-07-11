@@ -63,7 +63,7 @@ export default function InvestorDetailPage() {
         <div className="mt-10 text-center">
           <button
             onClick={() => router.push("/")}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg text-sm font-medium shadow"
+            className="bg-indigo-600 hover:bg-[#D0140F] cursor-pointer text-white py-2 px-6 rounded-lg text-sm font-medium shadow"
           >
             ← Back to Home
           </button>

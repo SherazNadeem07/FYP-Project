@@ -20,7 +20,7 @@ export default function EntrepreneursPage() {
       <div className="mb-6">
         <button
           onClick={() => router.push("/")}
-          className="text-white bg-indigo-700 hover:bg-indigo-600 px-6 py-2 rounded-lg font-medium shadow-lg transition"
+          className="text-white bg-indigo-700 hover:bg-[#D0140F] cursor-pointer px-6 py-2 rounded-lg font-medium shadow-lg transition"
         >
           ← Back to Home
         </button>

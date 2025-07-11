@@ -71,7 +71,6 @@ const AuthForm = ({ mode, role, toggleMode }) => {
     }
   };
 
-  // Safe mock login using localStorage
   const mockLogin = async (email, password) => {
     if (typeof window === 'undefined') return { success: false };
     const users = JSON.parse(localStorage.getItem('users') || '[]');
@@ -100,7 +99,7 @@ const AuthForm = ({ mode, role, toggleMode }) => {
         <input
           type="text"
           placeholder="Full Name"
-          className="w-full p-2 border border-gray-300 rounded"
+          className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
@@ -110,7 +109,7 @@ const AuthForm = ({ mode, role, toggleMode }) => {
       <input
         type="email"
         placeholder="Email"
-        className="w-full p-2 border border-gray-300 rounded"
+        className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -119,7 +118,7 @@ const AuthForm = ({ mode, role, toggleMode }) => {
       <input
         type="password"
         placeholder="Password"
-        className="w-full p-2 border border-gray-300 rounded"
+        className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
@@ -129,19 +128,19 @@ const AuthForm = ({ mode, role, toggleMode }) => {
         <input
           type="password"
           placeholder="Confirm Password"
-          className="w-full p-2 border border-gray-300 rounded"
+          className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
       )}
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <p className="text-[#D0140F] text-sm">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className={`w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition ${
+        className={`w-full bg-[#D0140F] text-white py-2 cursor-pointer rounded-md hover:bg-[#B0100D] transition font-semibold ${
           loading ? 'opacity-60 cursor-not-allowed' : ''
         }`}
       >

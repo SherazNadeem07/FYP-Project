@@ -1,29 +1,28 @@
 'use client';
 import React, { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation'; 
+import { useRouter, usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faRocket,
   faSignInAlt,
   faUserPlus,
   faBars,
-  faTimes
+  faTimes,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const pathname = usePathname(); 
+  const pathname = usePathname();
 
   const scrollLinks = [
-    { label: "Home", hash: "" },
-    { label: "How It Works", hash: "work" },
-    { label: "Top Investors", hash: "investors" },
-    { label: "Popular Pitches", hash: "popular" },
-    { label: "Why Choose Us", hash: "choose" }
+    { label: 'Home', hash: '' },
+    { label: 'How It Works', hash: 'work' },
+    { label: 'Top Investors', hash: 'investors' },
+    { label: 'Popular Pitches', hash: 'popular' },
+    { label: 'Why Choose Us', hash: 'choose' },
   ];
 
-  // Hide Navbar if user is on dashboard route
   if (pathname.startsWith('/dashboard')) {
     return null;
   }
@@ -34,20 +33,13 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
+    <nav className="bg-white shadow-lg sticky top-0 z-50 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
-          <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => handleNavigate('/')}>
-              <FontAwesomeIcon
-                icon={faRocket}
-                className="text-indigo-900 text-2xl mr-2"
-              />
-              <span className="text-xl font-bold text-gray-900 whitespace-nowrap">
-                SharkIdea
-              </span>
-            </div>
+          <div className="flex items-center cursor-pointer" onClick={() => handleNavigate('/')}>
+            <FontAwesomeIcon icon={faRocket} className="text-[#D0140F] text-2xl mr-2" />
+            <span className="text-xl font-bold text-gray-700 whitespace-nowrap">SharkIdea</span>
           </div>
 
           {/* Desktop Menu */}
@@ -56,11 +48,11 @@ export default function Navbar() {
               <button
                 key={hash}
                 onClick={() => handleNavigate(`/#${hash}`)}
-                className={`${
-                  label === "Home"
-                    ? "text-white bg-indigo-900 rounded-lg hover:bg-indigo-800"
-                    : "text-gray-800 hover:text-indigo-700"
-                } px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap`}
+                className={`px-3 py-2 text-sm font-medium transition duration-300 rounded-lg cursor-pointer ${
+                  label === 'Home'
+                    ? 'bg-[#D0140F] text-white hover:bg-[#3A3A3A]'
+                    : 'text-gray-600 hover:text-[#D0140F]'
+                }`}
               >
                 {label}
               </button>
@@ -68,22 +60,22 @@ export default function Navbar() {
 
             <button
               onClick={() => handleNavigate('/contact')}
-              className="text-gray-800 hover:text-indigo-700 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap"
+              className="text-gray-600 hover:text-[#D0140F] px-3 py-2 cursor-pointer text-sm font-medium transition duration-300"
             >
               Contact Us
             </button>
 
-            {/* Auth Buttons */}
             <button
               onClick={() => handleNavigate('/auth')}
-              className="text-gray-600 hover:text-indigo-700 border-l border-gray-300 px-3 py-2 text-sm font-medium transition duration-300 whitespace-nowrap"
+              className="text-gray-600 hover:text-[#D0140F] cursor-pointer border-l border-[#3A3A3A] px-3 py-2 text-sm font-medium transition duration-300"
             >
               <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
               Login
             </button>
+
             <button
               onClick={() => handleNavigate('/auth')}
-              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300 shadow-sm whitespace-nowrap"
+              className="bg-[#3A3A3A] hover:bg-[#D0140F] text-white px-4 py-2 rounded-md text-sm font-medium transition duration-300 shadow-sm"
             >
               <FontAwesomeIcon icon={faUserPlus} className="mr-2" />
               Sign Up
@@ -93,13 +85,10 @@ export default function Navbar() {
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             <button
-              className="text-gray-500 hover:text-gray-900 focus:outline-none"
+              className="text-black hover:text-[#D0140F] focus:outline-none"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              <FontAwesomeIcon
-                icon={mobileMenuOpen ? faTimes : faBars}
-                className="text-xl"
-              />
+              <FontAwesomeIcon icon={mobileMenuOpen ? faTimes : faBars} className="text-xl" />
             </button>
           </div>
         </div>
@@ -107,12 +96,16 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       <div className={`md:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
+        <div className="px-4 pt-3 pb-4 space-y-2 bg-white shadow-md text-white">
           {scrollLinks.map(({ label, hash }) => (
             <button
               key={hash}
               onClick={() => handleNavigate(`/#${hash}`)}
-              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
+              className={`block w-full text-left px-4 py-2 rounded-md cursor-pointer text-sm font-medium transition duration-300 ${
+                label === 'Home'
+                  ? 'bg-[#D0140F] text-white hover:bg-[#3A3A3A]'
+                  : 'text-gray-800 hover:text-[#D0140F]'
+              }`}
             >
               {label}
             </button>
@@ -120,20 +113,22 @@ export default function Navbar() {
 
           <button
             onClick={() => handleNavigate('/contact')}
-            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
+            className="block w-full text-left px-4 py-2 cursor-pointer rounded-md text-sm font-medium text-gray-800 hover:text-[#D0140F] transition duration-300"
           >
             Contact Us
           </button>
+
           <button
             onClick={() => handleNavigate('/auth')}
-            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
+            className="block w-full text-left px-4 py-2 cursor-pointer rounded-md text-sm font-medium text-gray-800 hover:text-[#D0140F] transition duration-300"
           >
             <FontAwesomeIcon icon={faSignInAlt} className="mr-2" />
             Login
           </button>
+
           <button
             onClick={() => handleNavigate('/auth')}
-            className="block mt-2 w-full text-left px-3 py-2 rounded-md text-base font-medium bg-amber-500 text-white hover:bg-amber-600"
+            className="block w-full text-left px-4 py-2 rounded-md text-sm font-medium bg-[#3A3A3A] text-white hover:bg-[#D0140F] transition duration-300"
           >
             <FontAwesomeIcon icon={faUserPlus} className="mr-2" />
             Sign Up
