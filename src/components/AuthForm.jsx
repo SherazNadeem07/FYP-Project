@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../Redux/Slices/AuthSlice';
@@ -42,20 +42,24 @@ const AuthForm = ({ mode, role, toggleMode }) => {
       if (mode === 'login') {
         const response = await mockLogin(email, password);
         if (response.success) {
-          dispatch(loginSuccess({
-            user: { email, role, fullName: response.fullName },
-            token: response.token
-          }));
-          router.push(role === 'entrepreneur'
-            ? '/dashboard/entrepreneur'
-            : '/dashboard/investor');
+          dispatch(
+            loginSuccess({
+              user: { email, role, fullName: response.fullName },
+              token: response.token,
+            })
+          );
+          router.push(
+            role === 'entrepreneur'
+              ? '/dashboard/entrepreneur'
+              : '/dashboard/investor'
+          );
         } else {
           setError('Invalid email or password');
         }
       } else {
         const response = await mockSignup(email, password, role, fullName);
         if (response.success) {
-          toggleMode(); // switch to login
+          toggleMode();
           setEmail('');
           setPassword('');
           setConfirmPassword('');
@@ -74,18 +78,18 @@ const AuthForm = ({ mode, role, toggleMode }) => {
   const mockLogin = async (email, password) => {
     if (typeof window === 'undefined') return { success: false };
     const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.email === email && u.password === password);
+    const user = users.find((u) => u.email === email && u.password === password);
     return {
       success: !!user,
       token: user ? `mock-token-${Math.random().toString(36).substring(2)}` : null,
-      fullName: user?.fullName || ''
+      fullName: user?.fullName || '',
     };
   };
 
   const mockSignup = async (email, password, role, fullName) => {
     if (typeof window === 'undefined') return { success: false, message: 'Client only' };
     const users = JSON.parse(localStorage.getItem('users') || '[]');
-    if (users.some(u => u.email === email)) {
+    if (users.some((u) => u.email === email)) {
       return { success: false, message: 'Email already exists' };
     }
     users.push({ email, password, role, fullName });
@@ -124,6 +128,17 @@ const AuthForm = ({ mode, role, toggleMode }) => {
         required
       />
 
+      {mode === 'login' && (
+        <div className="text-right text-sm">
+          <a
+            href="/auth/forgot"
+            className="text-[#D0140F] hover:underline cursor-pointer"
+          >
+            Forgot Password?
+          </a>
+        </div>
+      )}
+
       {mode === 'signup' && (
         <input
           type="password"
@@ -146,7 +161,9 @@ const AuthForm = ({ mode, role, toggleMode }) => {
       >
         {loading
           ? 'Please wait...'
-          : `${mode === 'login' ? 'Login' : 'Signup'} as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
+          : `${mode === 'login' ? 'Login' : 'Signup'} as ${
+              role.charAt(0).toUpperCase() + role.slice(1)
+            }`}
       </button>
     </form>
   );
