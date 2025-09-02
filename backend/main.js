@@ -430,6 +430,313 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
+// ===== PITCHES ROUTES ===== //
+
+// Get all pitches for authenticated entrepreneur
+app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await con.query(
+      `SELECT 
+        p.id, p.name, p.description, p.status, 
+        p.funding_goal as "fundingGoal", p.equity_offered as "equityOffered",
+        p.pitch_doc_url as "pitchDocUrl", p.pitch_video_url as "pitchVideoUrl",
+        p.created_at as "dateSubmitted",
+        COUNT(i.id) as "investorCount"
+      FROM pitches p 
+      LEFT JOIN investments i ON p.id = i.pitch_id
+      WHERE p.user_id = $1
+      GROUP BY p.id
+      ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    res.json({ pitches: result.rows });
+  } catch (err) {
+    console.error('Get pitches error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get single pitch details
+app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const result = await con.query(
+      `SELECT 
+        p.*, 
+        u.full_name as "userName",
+        u.email as "userEmail",
+        COUNT(i.id) as "investorCount",
+        COALESCE(SUM(i.amount), 0) as "totalInvested"
+      FROM pitches p 
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN investments i ON p.id = i.pitch_id
+      WHERE p.id = $1 AND p.user_id = $2
+      GROUP BY p.id, u.full_name, u.email`,
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found' });
+    }
+
+    res.json({ pitch: result.rows[0] });
+  } catch (err) {
+    console.error('Get pitch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create new pitch
+app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      name,
+      description,
+      fundingGoal,
+      equityOffered,
+      pitchDocUrl,
+      pitchVideoUrl,
+      industry,
+      businessModel,
+      teamSize,
+      foundedYear,
+      location,
+      revenue
+    } = req.body;
+
+    // Validation
+    if (!name || !description || !fundingGoal || !equityOffered) {
+      return res.status(400).json({ error: 'Required fields are missing' });
+    }
+
+    const result = await con.query(
+      `INSERT INTO pitches 
+        (user_id, name, description, funding_goal, equity_offered, 
+         pitch_doc_url, pitch_video_url, industry, business_model, 
+         team_size, founded_year, location, revenue, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
+       RETURNING 
+         id, name, description, status, 
+         funding_goal as "fundingGoal", equity_offered as "equityOffered",
+         pitch_doc_url as "pitchDocUrl", pitch_video_url as "pitchVideoUrl",
+         created_at as "dateSubmitted"`,
+      [
+        userId, name, description, parseFloat(fundingGoal), parseFloat(equityOffered),
+        pitchDocUrl, pitchVideoUrl, industry, businessModel,
+        teamSize, foundedYear, location, revenue
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Pitch created successfully',
+      pitch: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Create pitch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update pitch
+app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const {
+      name,
+      description,
+      fundingGoal,
+      equityOffered,
+      pitchDocUrl,
+      pitchVideoUrl,
+      industry,
+      businessModel,
+      teamSize,
+      foundedYear,
+      location,
+      revenue
+    } = req.body;
+
+    // Check if pitch belongs to user
+    const checkResult = await con.query(
+      'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found' });
+    }
+
+    const result = await con.query(
+      `UPDATE pitches SET 
+        name = $1, description = $2, funding_goal = $3, equity_offered = $4,
+        pitch_doc_url = $5, pitch_video_url = $6, industry = $7, business_model = $8,
+        team_size = $9, founded_year = $10, location = $11, revenue = $12,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $13 AND user_id = $14
+       RETURNING 
+         id, name, description, status, 
+         funding_goal as "fundingGoal", equity_offered as "equityOffered",
+         pitch_doc_url as "pitchDocUrl", pitch_video_url as "pitchVideoUrl"`,
+      [
+        name, description, parseFloat(fundingGoal), parseFloat(equityOffered),
+        pitchDocUrl, pitchVideoUrl, industry, businessModel,
+        teamSize, foundedYear, location, revenue, id, userId
+      ]
+    );
+
+    res.json({
+      message: 'Pitch updated successfully',
+      pitch: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Update pitch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete pitch
+app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Check if pitch belongs to user
+    const checkResult = await con.query(
+      'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found' });
+    }
+
+    await con.query(
+      'DELETE FROM pitches WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    res.json({ message: 'Pitch deleted successfully' });
+  } catch (err) {
+    console.error('Delete pitch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===== STARTUP INFO ROUTES ===== //
+
+// Get startup information
+app.get('/api/entrepreneur/startup-info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await con.query(
+      `SELECT 
+        founded_year as "founded",
+        team_size as "teamSize",
+        industry,
+        location,
+        business_model as "businessModel",
+        revenue
+      FROM user_profiles 
+      WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        founded: '',
+        teamSize: '',
+        industry: '',
+        location: '',
+        businessModel: '',
+        revenue: ''
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Get startup info error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update startup information
+app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { founded, teamSize, industry, location, businessModel, revenue } = req.body;
+
+    // Check if profile exists
+    const checkResult = await con.query(
+      'SELECT user_id FROM user_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      // Create new profile
+      await con.query(
+        `INSERT INTO user_profiles 
+          (user_id, founded_year, team_size, industry, location, business_model, revenue)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, founded, teamSize, industry, location, businessModel, revenue]
+      );
+    } else {
+      // Update existing profile
+      await con.query(
+        `UPDATE user_profiles SET 
+          founded_year = $1, team_size = $2, industry = $3, 
+          location = $4, business_model = $5, revenue = $6,
+          updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $7`,
+        [founded, teamSize, industry, location, businessModel, revenue, userId]
+      );
+    }
+
+    res.json({ 
+      message: 'Startup information updated successfully',
+      startupInfo: { founded, teamSize, industry, location, businessModel, revenue }
+    });
+  } catch (err) {
+    console.error('Update startup info error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===== FILE UPLOAD ROUTE ===== //
+
+app.post('/api/upload/pitch-file', authenticateToken, async (req, res) => {
+  try {
+    // Yeh basic implementation hai - aapko proper file upload implement karna hoga
+    // Multer ya koi aur library use kar sakte hain
+    const { fileName, fileType, base64Data } = req.body;
+
+    if (!fileName || !fileType || !base64Data) {
+      return res.status(400).json({ error: 'File data is required' });
+    }
+
+    // File save logic yahan add karein
+    // Temporary response
+    const fileUrl = `https://your-storage-bucket.com/pitches/${Date.now()}-${fileName}`;
+    
+    res.json({ 
+      message: 'File uploaded successfully',
+      fileUrl 
+    });
+  } catch (err) {
+    console.error('File upload error:', err);
+    res.status(500).json({ error: 'File upload failed' });
+  }
+});
+
+
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

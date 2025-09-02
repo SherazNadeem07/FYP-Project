@@ -1,24 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiUpload, FiDollarSign, FiPercent, FiBriefcase, FiUsers, FiClock } from 'react-icons/fi';
 import AnalyticsPage from './analytics/page';
 
 export default function EntrepreneurDashboard() {
-  const [pitches, setPitches] = useState([
-    { id: 1, name: 'Eco-Friendly Packaging', status: 'Pending', amount: '$50,000', date: '01/25/2028', description: 'Sustainable packaging solutions for e-commerce businesses' },
-    { id: 2, name: 'Health Tracker App', status: 'Live', amount: '$75,000', date: '15/25/2028', description: 'AI-powered health monitoring and wellness platform' },
-    { id: 3, name: 'Online Learning Platform', status: 'Funded', amount: '$100,000', date: '11/20/2028', description: 'Interactive courses for professional skill development' },
-  ]);
-
+  const [pitches, setPitches] = useState([]);
   const [startupInfo, setStartupInfo] = useState({
-    founded: '2022',
-    teamSize: '8',
-    industry: 'Technology',
-    location: 'San Francisco, CA',
-    businessModel: 'B2B SaaS',
-    revenue: '$120K ARR',
+    founded: '',
+    teamSize: '',
+    industry: '',
+    location: '',
+    businessModel: '',
+    revenue: ''
   });
+  const [loading, setLoading] = useState(true);
 
+  // Add newPitch state variable - YEH MISSING THA
   const [newPitch, setNewPitch] = useState({
     name: '',
     description: '',
@@ -28,28 +25,122 @@ export default function EntrepreneurDashboard() {
     pitchVideo: null,
   });
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+
+const fetchData = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    
+    // Fetch pitches
+    const pitchesResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    // Check if response is OK
+    if (!pitchesResponse.ok) {
+      if (pitchesResponse.status === 404) {
+        console.error('Pitches endpoint not found. Check your server routes.');
+        setPitches([]);
+        return;
+      }
+      throw new Error(`HTTP error! status: ${pitchesResponse.status}`);
+    }
+    
+    const pitchesData = await pitchesResponse.json();
+    setPitches(pitchesData.pitches || []);
+
+    // Fetch startup info
+    const infoResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/startup-info`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!infoResponse.ok) {
+      if (infoResponse.status === 404) {
+        console.error('Startup info endpoint not found.');
+        return;
+      }
+      throw new Error(`HTTP error! status: ${infoResponse.status}`);
+    }
+    
+    const infoData = await infoResponse.json();
+    setStartupInfo(infoData);
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    // Set empty arrays to prevent further errors
+    setPitches([]);
+  } finally {
+    setLoading(false);
+  }
+};
+  // Add handleInputChange function - YEH BHI MISSING THA
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewPitch({ ...newPitch, [name]: value });
   };
 
+  // Add handleFileChange function - YEH BHI MISSING THA
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     setNewPitch({ ...newPitch, [name]: files[0] });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('New pitch submitted:', newPitch);
-    setNewPitch({
-      name: '',
-      description: '',
-      fundingGoal: '',
-      equityOffered: '',
-      pitchDoc: null,
-      pitchVideo: null,
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  try {
+    const token = localStorage.getItem('token');
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: newPitch.name,
+        description: newPitch.description,
+        fundingGoal: newPitch.fundingGoal,
+        equityOffered: newPitch.equityOffered,
+        // Add other fields as needed
+      })
     });
-  };
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Pitch created:', result);
+      // Refresh pitches list
+      fetchData();
+      // Reset form
+      setNewPitch({
+        name: '',
+        description: '',
+        fundingGoal: '',
+        equityOffered: '',
+        pitchDoc: null,
+        pitchVideo: null,
+      });
+    } else {
+      if (response.status === 404) {
+        console.error('Create pitch endpoint not found. Check your server routes.');
+        alert('Server error: Endpoint not found. Please check if the server is running.');
+      } else {
+        console.error('Failed to create pitch:', response.status);
+        alert('Failed to create pitch. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error creating pitch:', error);
+    alert('Network error. Please check your connection and try again.');
+  }
+};
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
 
   return (
     <>
@@ -61,12 +152,12 @@ export default function EntrepreneurDashboard() {
           <h2 className="text-lg font-semibold mb-4 text-white">Startup Information</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: <FiBriefcase className="text-[#D0140F]" />, label: 'Founded', value: startupInfo.founded },
-              { icon: <FiUsers className="text-[#D0140F]" />, label: 'Team Size', value: `${startupInfo.teamSize} members` },
-              { icon: <FiBriefcase className="text-[#D0140F]" />, label: 'Industry', value: startupInfo.industry },
-              { icon: <FiClock className="text-[#D0140F]" />, label: 'Location', value: startupInfo.location },
-              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Business Model', value: startupInfo.businessModel },
-              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Revenue', value: startupInfo.revenue },
+              { icon: <FiBriefcase className="text-[#D0140F]" />, label: 'Founded', value: startupInfo.founded || 'Not set' },
+              { icon: <FiUsers className="text-[#D0140F]" />, label: 'Team Size', value: startupInfo.teamSize ? `${startupInfo.teamSize} members` : 'Not set' },
+              { icon: <FiBriefcase className="text-[#D0140F]" />, label: 'Industry', value: startupInfo.industry || 'Not set' },
+              { icon: <FiClock className="text-[#D0140F]" />, label: 'Location', value: startupInfo.location || 'Not set' },
+              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Business Model', value: startupInfo.businessModel || 'Not set' },
+              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Revenue', value: startupInfo.revenue || 'Not set' },
             ].map((item, index) => (
               <div key={index} className="flex items-start space-x-3">
                 <div className="p-2 bg-[#2A2A2A] rounded-full">{item.icon}</div>
@@ -82,48 +173,76 @@ export default function EntrepreneurDashboard() {
         {/* Pitch Summary */}
         <div className="bg-[#252525] p-4 sm:p-6 rounded-lg border border-[#3A3A3A] overflow-x-auto">
           <h2 className="text-lg font-semibold mb-4 text-white">Pitch Summary</h2>
-          <table className="min-w-full divide-y divide-[#3A3A3A]">
-            <thead className="bg-[#1A1A1A]">
-              <tr>
-                {['Pitch Name', 'Description', 'Status', 'Total Amount', 'Date Submitted'].map((head, i) => (
-                  <th key={i} className="px-4 py-2 text-left text-xs font-medium text-[#AAAAAA] uppercase tracking-wider">
-                    {head}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#3A3A3A]">
-              {pitches.map((pitch) => (
-                <tr key={pitch.id} className="hover:bg-[#2A2A2A]">
-                  <td className="px-4 py-3 text-sm font-medium text-white whitespace-nowrap">{pitch.name}</td>
-                  <td className="px-4 py-3 text-sm text-[#AAAAAA]">{pitch.description}</td>
-                  <td className="px-4 py-3 text-sm whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${pitch.status === 'Pending'
-                        ? 'bg-[#2A2A2A] text-[#FFB800] border border-[#FFB800]'
-                        : pitch.status === 'Live'
-                        ? 'bg-[#2A2A2A] text-[#00FFA3] border border-[#00FFA3]'
-                        : 'bg-[#2A2A2A] text-[#D0140F] border border-[#D0140F]'
-                      }`}>
-                      {pitch.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{pitch.amount}</td>
-                  <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{pitch.date}</td>
+          {pitches.length === 0 ? (
+            <p className="text-[#AAAAAA] text-center py-8">No pitches found. Create your first pitch!</p>
+          ) : (
+            <table className="min-w-full divide-y divide-[#3A3A3A]">
+              <thead className="bg-[#1A1A1A]">
+                <tr>
+                  {['Pitch Name', 'Description', 'Status', 'Funding Goal', 'Equity', 'Date Submitted'].map((head, i) => (
+                    <th key={i} className="px-4 py-2 text-left text-xs font-medium text-[#AAAAAA] uppercase tracking-wider">
+                      {head}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#3A3A3A]">
+                {pitches.map((pitch) => (
+                  <tr key={pitch.id} className="hover:bg-[#2A2A2A]">
+                    <td className="px-4 py-3 text-sm font-medium text-white whitespace-nowrap">{pitch.name}</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA]">{pitch.description}</td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${pitch.status === 'Pending'
+                          ? 'bg-[#2A2A2A] text-[#FFB800] border border-[#FFB800]'
+                          : pitch.status === 'Live'
+                            ? 'bg-[#2A2A2A] text-[#00FFA3] border border-[#00FFA3]'
+                            : 'bg-[#2A2A2A] text-[#D0140F] border border-[#D0140F]'
+                        }`}>
+                        {pitch.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${pitch.fundingGoal}</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{pitch.equityOffered}%</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">
+                      {new Date(pitch.dateSubmitted).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Add New Pitch */}
         <div className="bg-[#252525] p-4 sm:p-6 rounded-lg border border-[#3A3A3A]">
           <h2 className="text-lg font-semibold mb-4 text-white">Add New Pitch</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField label="Startup Name" name="name" value={newPitch.name} onChange={handleInputChange} />
-            <TextArea label="Short Description" name="description" value={newPitch.description} onChange={handleInputChange} />
-            <InputField label="Funding Goal" name="fundingGoal" value={newPitch.fundingGoal} onChange={handleInputChange} />
-            <InputField label="Equity Offered" name="equityOffered" value={newPitch.equityOffered} onChange={handleInputChange} suffix="%" />
+            <InputField
+              label="Startup Name"
+              name="name"
+              value={newPitch.name}
+              onChange={handleInputChange}
+            />
+            <TextArea
+              label="Short Description"
+              name="description"
+              value={newPitch.description}
+              onChange={handleInputChange}
+            />
+            <InputField
+              label="Funding Goal"
+              name="fundingGoal"
+              value={newPitch.fundingGoal}
+              onChange={handleInputChange}
+            />
+            <InputField
+              label="Equity Offered"
+              name="equityOffered"
+              value={newPitch.equityOffered}
+              onChange={handleInputChange}
+              suffix="%"
+            />
 
             {/* File Uploads */}
             <div>
@@ -149,6 +268,14 @@ export default function EntrepreneurDashboard() {
             <div className="flex flex-wrap gap-4 pt-4">
               <button
                 type="button"
+                onClick={() => setNewPitch({
+                  name: '',
+                  description: '',
+                  fundingGoal: '',
+                  equityOffered: '',
+                  pitchDoc: null,
+                  pitchVideo: null,
+                })}
                 className="w-full sm:w-auto inline-flex justify-center py-2 px-6 border border-[#3A3A3A] text-sm font-medium rounded-md text-[#F0F0F0] bg-[#252525] hover:bg-[#2A2A2A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D0140F]"
               >
                 Discard
