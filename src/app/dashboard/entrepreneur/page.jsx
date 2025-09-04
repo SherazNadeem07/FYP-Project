@@ -1,5 +1,8 @@
+
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import { FiUpload, FiDollarSign, FiPercent, FiBriefcase, FiUsers, FiClock } from 'react-icons/fi';
 import AnalyticsPage from './analytics/page';
 
@@ -14,8 +17,6 @@ export default function EntrepreneurDashboard() {
     revenue: ''
   });
   const [loading, setLoading] = useState(true);
-
-  // Add newPitch state variable - YEH MISSING THA
   const [newPitch, setNewPitch] = useState({
     name: '',
     description: '',
@@ -24,121 +25,186 @@ export default function EntrepreneurDashboard() {
     pitchDoc: null,
     pitchVideo: null,
   });
+  const router = useRouter();
+  const { token } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-
-const fetchData = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    
-    // Fetch pitches
-    const pitchesResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    // Check if response is OK
-    if (!pitchesResponse.ok) {
-      if (pitchesResponse.status === 404) {
-        console.error('Pitches endpoint not found. Check your server routes.');
-        setPitches([]);
-        return;
-      }
-      throw new Error(`HTTP error! status: ${pitchesResponse.status}`);
+    const storedToken = localStorage.getItem('token') || token;
+    console.log('Token check - localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing');
+    if (!storedToken) {
+      console.log('No token found, redirecting to login');
+      router.push('/auth');
+      return;
     }
-    
-    const pitchesData = await pitchesResponse.json();
-    setPitches(pitchesData.pitches || []);
+    fetchData(storedToken);
+  }, [router, token]);
 
-    // Fetch startup info
-    const infoResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/startup-info`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!infoResponse.ok) {
-      if (infoResponse.status === 404) {
-        console.error('Startup info endpoint not found.');
-        return;
+  const fetchData = async (authToken) => {
+    try {
+      console.log('Fetching data with token:', authToken ? 'Present' : 'Missing');
+      if (!authToken) {
+        throw new Error('No token found');
       }
-      throw new Error(`HTTP error! status: ${infoResponse.status}`);
-    }
-    
-    const infoData = await infoResponse.json();
-    setStartupInfo(infoData);
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      const pitchesResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      
+      if (!pitchesResponse.ok) {
+        const errorText = await pitchesResponse.text();
+        console.error('Pitches response:', pitchesResponse.status, errorText);
+        throw new Error(`HTTP error! status: ${pitchesResponse.status}`);
+      }
+      
+      const pitchesData = await pitchesResponse.json();
+      setPitches(pitchesData.pitches || []);
 
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    // Set empty arrays to prevent further errors
-    setPitches([]);
-  } finally {
-    setLoading(false);
-  }
-};
-  // Add handleInputChange function - YEH BHI MISSING THA
+      const infoResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/startup-info`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      
+      if (!infoResponse.ok) {
+        const errorText = await infoResponse.text();
+        console.error('Startup info response:', infoResponse.status, errorText);
+        throw new Error(`HTTP error! status: ${infoResponse.status}`);
+      }
+      
+      const infoData = await infoResponse.json();
+      setStartupInfo(infoData);
+    } catch (error) {
+      console.error('Error fetching data:', error.message);
+      if (error.message.includes('No token found')) {
+        router.push('/auth');
+      }
+      setPitches([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewPitch({ ...newPitch, [name]: value });
   };
 
-  // Add handleFileChange function - YEH BHI MISSING THA
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     setNewPitch({ ...newPitch, [name]: files[0] });
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  try {
-    const token = localStorage.getItem('token');
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    e.preventDefault();
     
-    const response = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: newPitch.name,
-        description: newPitch.description,
-        fundingGoal: newPitch.fundingGoal,
-        equityOffered: newPitch.equityOffered,
-        // Add other fields as needed
-      })
-    });
+    if (!newPitch.name || !newPitch.description) {
+      alert('Startup Name and Short Description are required');
+      return;
+    }
+    
+    const fundingGoal = parseFloat(newPitch.fundingGoal);
+    const equityOffered = parseFloat(newPitch.equityOffered);
+    
+    if (isNaN(fundingGoal) || fundingGoal <= 0) {
+      alert('Funding Goal must be a positive number');
+      return;
+    }
+    
+    if (isNaN(equityOffered) || equityOffered < 0 || equityOffered > 100) {
+      alert('Equity Offered must be between 0 and 100');
+      return;
+    }
+    
+    try {
+      const authToken = localStorage.getItem('token') || token;
+      console.log('Submitting pitch with token:', authToken ? 'Present' : 'Missing');
+      if (!authToken) {
+        throw new Error('No token found');
+      }
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      let pitchDocUrl = null;
+      let pitchVideoUrl = null;
 
-    if (response.ok) {
-      const result = await response.json();
-      console.log('Pitch created:', result);
-      // Refresh pitches list
-      fetchData();
-      // Reset form
-      setNewPitch({
-        name: '',
-        description: '',
-        fundingGoal: '',
-        equityOffered: '',
-        pitchDoc: null,
-        pitchVideo: null,
+      if (newPitch.pitchDoc) {
+        const formData = new FormData();
+        formData.append('file', newPitch.pitchDoc);
+        const docResponse = await fetch(`${API_BASE_URL}/api/upload/pitch-file`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` },
+          body: formData,
+        });
+        if (!docResponse.ok) {
+          const errorText = await docResponse.text();
+          throw new Error(`Failed to upload pitch document: ${errorText}`);
+        }
+        const docResult = await docResponse.json();
+        pitchDocUrl = docResult.fileUrl;
+      }
+
+      if (newPitch.pitchVideo) {
+        const formData = new FormData();
+        formData.append('file', newPitch.pitchVideo);
+        const videoResponse = await fetch(`${API_BASE_URL}/api/upload/pitch-file`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` },
+          body: formData,
+        });
+        if (!videoResponse.ok) {
+          const errorText = await videoResponse.text();
+          throw new Error(`Failed to upload pitch video: ${errorText}`);
+        }
+        const videoResult = await videoResponse.json();
+        pitchVideoUrl = videoResult.fileUrl;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newPitch.name,
+          description: newPitch.description,
+          fundingGoal,
+          equityOffered,
+          pitchDocUrl,
+          pitchVideoUrl,
+          industry: startupInfo.industry,
+          businessModel: startupInfo.businessModel,
+          teamSize: startupInfo.teamSize,
+          foundedYear: startupInfo.founded,
+          location: startupInfo.location,
+          revenue: startupInfo.revenue,
+        })
       });
-    } else {
-      if (response.status === 404) {
-        console.error('Create pitch endpoint not found. Check your server routes.');
-        alert('Server error: Endpoint not found. Please check if the server is running.');
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Pitch created:', result);
+        alert('Pitch created successfully!');
+        fetchData(authToken);
+        setNewPitch({
+          name: '',
+          description: '',
+          fundingGoal: '',
+          equityOffered: '',
+          pitchDoc: null,
+          pitchVideo: null,
+        });
       } else {
-        console.error('Failed to create pitch:', response.status);
-        alert('Failed to create pitch. Please try again.');
+        const errorText = await response.text();
+        console.error('Failed to create pitch:', response.status, errorText);
+        alert(`Failed to create pitch: ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error creating pitch:', error.message);
+      alert(`Error: ${error.message}`);
+      if (error.message.includes('No token found')) {
+        router.push('/auth');
       }
     }
-  } catch (error) {
-    console.error('Error creating pitch:', error);
-    alert('Network error. Please check your connection and try again.');
-  }
-};
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
 
@@ -235,16 +301,17 @@ const fetchData = async () => {
               name="fundingGoal"
               value={newPitch.fundingGoal}
               onChange={handleInputChange}
+              type="number"
             />
             <InputField
               label="Equity Offered"
               name="equityOffered"
               value={newPitch.equityOffered}
               onChange={handleInputChange}
+              type="number"
               suffix="%"
             />
 
-            {/* File Uploads */}
             <div>
               <label className="block text-sm font-medium text-[#AAAAAA] mb-1">Upload Pitch Documents</label>
               <div className="flex flex-col sm:flex-row sm:space-x-4 gap-2 sm:gap-0">
@@ -264,7 +331,6 @@ const fetchData = async () => {
               </div>
             </div>
 
-            {/* Buttons */}
             <div className="flex flex-wrap gap-4 pt-4">
               <button
                 type="button"
@@ -291,20 +357,18 @@ const fetchData = async () => {
         </div>
       </div>
 
-      {/* Analytics Component */}
       <AnalyticsPage />
     </>
   );
 }
 
-// Input field component
-function InputField({ label, name, value, onChange, suffix }) {
+function InputField({ label, name, value, onChange, suffix, type = 'text' }) {
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-[#AAAAAA] mb-1">{label}</label>
       <div className="relative">
         <input
-          type="text"
+          type={type}
           name={name}
           id={name}
           value={value}
@@ -320,7 +384,6 @@ function InputField({ label, name, value, onChange, suffix }) {
   );
 }
 
-// Textarea component
 function TextArea({ label, name, value, onChange }) {
   return (
     <div>

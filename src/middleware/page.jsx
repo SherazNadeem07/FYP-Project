@@ -1,18 +1,19 @@
+
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
   const path = request.nextUrl.pathname;
   const token = request.cookies.get("token")?.value;
 
-  // Public routes that don't require authentication
+  console.log('Middleware - Path:', path, 'Token:', token ? 'Present' : 'Missing');
+
   const publicPaths = ["/auth", "/login", "/signup"];
   const isPublicPath = publicPaths.some((p) => path.startsWith(p));
 
-  // If user has a token and tries to access public auth pages, redirect to appropriate dashboard
   if (isPublicPath && token) {
     try {
-      // Verify token and extract role (you might need to implement this function)
       const userRole = await getUserRoleFromToken(token);
+      console.log('User role:', userRole);
       
       if (userRole === 'entrepreneur') {
         return NextResponse.redirect(new URL("/dashboard/entrepreneur", request.url));
@@ -20,34 +21,33 @@ export async function middleware(request) {
         return NextResponse.redirect(new URL("/dashboard/investor", request.url));
       }
     } catch (error) {
-      // If token is invalid, clear it and redirect to login
+      console.error('Middleware token error:', error.message);
       const response = NextResponse.redirect(new URL("/auth", request.url));
       response.cookies.delete("token");
       return response;
     }
   }
 
-  // Protect dashboard routes
   if (path.startsWith("/dashboard") && !token) {
+    console.log('No token, redirecting to /auth');
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 
-  // Role-specific dashboard protection
   if (token && path.startsWith("/dashboard")) {
     try {
       const userRole = await getUserRoleFromToken(token);
       
-      // If user tries to access entrepreneur dashboard but is an investor
       if (path.startsWith("/dashboard/entrepreneur") && userRole !== 'entrepreneur') {
+        console.log('Role mismatch: User is not entrepreneur');
         return NextResponse.redirect(new URL(`/dashboard/${userRole}`, request.url));
       }
       
-      // If user tries to access investor dashboard but is an entrepreneur
       if (path.startsWith("/dashboard/investor") && userRole !== 'investor') {
+        console.log('Role mismatch: User is not investor');
         return NextResponse.redirect(new URL(`/dashboard/${userRole}`, request.url));
       }
     } catch (error) {
-      // If token is invalid, clear it and redirect to login
+      console.error('Middleware token error:', error.message);
       const response = NextResponse.redirect(new URL("/auth", request.url));
       response.cookies.delete("token");
       return response;
@@ -57,15 +57,17 @@ export async function middleware(request) {
   return NextResponse.next();
 }
 
-// Helper function to extract role from JWT token
 async function getUserRoleFromToken(token) {
   try {
-    // You'll need to implement JWT verification based on your setup
-    // This is a simplified example - you should use proper JWT verification
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    console.log('Token payload:', payload);
+    if (!payload.role) {
+      throw new Error('Role not found in token');
+    }
     return payload.role;
   } catch (error) {
-    throw new Error("Invalid token");
+    console.error('Token parsing error:', error.message);
+    throw new Error('Invalid token');
   }
 }
 

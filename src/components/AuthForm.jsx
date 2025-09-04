@@ -1,8 +1,10 @@
+
 "use client";
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../Redux/Slices/AuthSlice';
 import { useRouter } from 'next/navigation';
+import { setCookie } from 'cookies-next';
 
 const AuthForm = ({ mode, role, toggleMode }) => {
   const [email, setEmail] = useState('');
@@ -15,7 +17,6 @@ const AuthForm = ({ mode, role, toggleMode }) => {
   const dispatch = useDispatch();
   const router = useRouter();
 
-  // API base URL - adjust based on your environment
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   const handleSubmit = async (e) => {
@@ -43,7 +44,6 @@ const AuthForm = ({ mode, role, toggleMode }) => {
 
     try {
       if (mode === 'login') {
-        // Real login API call
         const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
           method: 'POST',
           headers: {
@@ -58,7 +58,14 @@ const AuthForm = ({ mode, role, toggleMode }) => {
           throw new Error(data.error || 'Login failed');
         }
 
-        // Dispatch login success with real data
+        // Store token in localStorage
+        console.log('Storing token in localStorage:', data.token);
+        localStorage.setItem('token', data.token);
+
+        // Store token in cookies for middleware
+        setCookie('token', data.token, { maxAge: 7 * 24 * 60 * 60 }); // 7 days
+
+        // Dispatch login success to Redux
         dispatch(
           loginSuccess({
             user: {
@@ -78,7 +85,6 @@ const AuthForm = ({ mode, role, toggleMode }) => {
             : '/dashboard/investor'
         );
       } else {
-        // Real signup API call
         const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
           method: 'POST',
           headers: {
@@ -107,49 +113,16 @@ const AuthForm = ({ mode, role, toggleMode }) => {
         setFullName('');
       }
     } catch (err) {
+      console.error('Auth error:', err.message);
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgot=()=>{
-    router.push("/auth/forgot")
-  }
-
-  // // Forgot password handler
-  // const handleForgotPassword = async (e) => {
-  //   e.preventDefault();
-  //   if (!email) {
-  //     setError('Please enter your email address first');
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   setError('');
-
-  //   try {
-  //     const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({ email }),
-  //     });
-
-  //     const data = await response.json();
-
-  //     if (!response.ok) {
-  //       throw new Error(data.error || 'Failed to send reset email');
-  //     }
-
-  //     alert('If the email exists, a password reset link has been sent');
-  //   } catch (err) {
-  //     setError(err.message || 'Something went wrong. Please try again.');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const handleForgot = () => {
+    router.push('/auth/forgot');
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

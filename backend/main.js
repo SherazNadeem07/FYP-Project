@@ -1,4 +1,3 @@
-// main.js - BAHUT TOP PE YE LINE ADD KAREIN
 require('dotenv').config();
 
 const express = require('express');
@@ -6,22 +5,53 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const multer = require('multer');
+const path = require('path');
 const con = require('./db'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error('❌ JWT_SECRET is not defined in .env');
+  process.exit(1);
+}
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
-// Email transporter configuration with improved error handling
+// Configure Multer for file uploads
+const storage = multer.diskStorage({
+  destination: './uploads/',
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const fileTypes = /pdf|doc|docx|mp4|mov|avi/;
+    const extname = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = fileTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, MP4, MOV, AVI allowed.'));
+  }
+}).single('file');
+
+// Email transporter configuration
 let emailTransporter;
 try {
-  // Remove any spaces from the password
   const emailPassword = process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.replace(/\s/g, '') : '';
-  
   emailTransporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -30,30 +60,24 @@ try {
     }
   });
 
-  // Test email connection
-  emailTransporter.verify(function(error, success) {
+  emailTransporter.verify((error, success) => {
     if (error) {
-      console.log('❌ Email connection error:', error.message);
-      console.log('ℹ️  Please check your Gmail settings:');
-      console.log('1. Ensure 2-Step Verification is enabled');
-      console.log('2. Generate an App Password from Google Account settings');
-      console.log('3. Make sure EMAIL_PASSWORD in .env is the 16-character App Password (no spaces)');
+      console.error('❌ Email connection error:', error.message);
+      console.log('ℹ️ Ensure 2-Step Verification and App Password are set in Gmail');
     } else {
-      console.log('✅ Email server is ready to send messages');
+      console.log('✅ Email server is ready');
     }
   });
 } catch (error) {
-  console.log('❌ Email transporter creation failed:', error.message);
-  // Create a dummy transporter to prevent crashes
+  console.error('❌ Email transporter creation failed:', error.message);
   emailTransporter = {
     sendMail: async () => {
-      console.log('ℹ️  Email functionality disabled due to configuration error');
       throw new Error('Email not configured properly');
     }
   };
 }
 
-// Helper function to generate JWT token
+// Generate JWT token
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: '7d' });
 };
@@ -63,24 +87,30 @@ const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('Received token:', token ? 'Present' : 'Missing'); // Debug log
   if (!token) {
+    console.log('No token provided');
     return res.status(401).json({ error: 'Access token required' });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Decoded token:', decoded);
     const result = await con.query(
       'SELECT id, full_name, email, role FROM users WHERE id = $1',
       [decoded.userId]
     );
-    
+
+    console.log('User lookup result:', result.rows);
     if (result.rows.length === 0) {
+      console.log('User not found for ID:', decoded.userId);
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     req.user = result.rows[0];
     next();
   } catch (err) {
+    console.error('Token verification error:', err.message);
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
 };
@@ -92,7 +122,6 @@ app.post('/api/auth/signup', async (req, res) => {
   try {
     const { fullName, email, password, role } = req.body;
 
-    // Validation
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({ error: 'All fields are required' });
     }
@@ -105,7 +134,6 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
-    // Check if user already exists
     const userExists = await con.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
@@ -115,17 +143,14 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(409).json({ error: 'User already exists with this email' });
     }
 
-    // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user
     const result = await con.query(
       'INSERT INTO users (full_name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, full_name, email, role',
       [fullName, email, hashedPassword, role]
     );
 
-    // Generate token
     const token = generateToken(result.rows[0].id, role);
 
     res.status(201).json({
@@ -134,7 +159,7 @@ app.post('/api/auth/signup', async (req, res) => {
       token
     });
   } catch (err) {
-    console.error('Signup error:', err);
+    console.error('Signup error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -144,12 +169,10 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Find user
     const result = await con.query(
       'SELECT id, full_name, email, password, role FROM users WHERE email = $1',
       [email]
@@ -160,17 +183,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const user = result.rows[0];
-
-    // Check password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate token
     const token = generateToken(user.id, user.role);
-
-    // Remove password from response
     delete user.password;
 
     res.json({
@@ -179,7 +197,7 @@ app.post('/api/auth/login', async (req, res) => {
       token
     });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -189,7 +207,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     res.json({ user: req.user });
   } catch (err) {
-    console.error('Get profile error:', err);
+    console.error('Get profile error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -214,7 +232,7 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
       user: result.rows[0]
     });
   } catch (err) {
-    console.error('Update profile error:', err);
+    console.error('Update profile error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -233,7 +251,6 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 8 characters long' });
     }
 
-    // Get current password
     const result = await con.query(
       'SELECT password FROM users WHERE id = $1',
       [userId]
@@ -244,11 +261,9 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Hash new password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update password
     await con.query(
       'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, userId]
@@ -256,12 +271,12 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
-    console.error('Change password error:', err);
+    console.error('Change password error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Forgot password - generate reset token and send email
+// Forgot password
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -270,14 +285,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Check if user exists
     const result = await con.query(
       'SELECT id, email, full_name FROM users WHERE email = $1',
       [email]
     );
 
     if (result.rows.length === 0) {
-      // For security, don't reveal if email exists
       return res.json({ 
         success: true, 
         message: 'If the email exists, a password reset link has been sent' 
@@ -285,24 +298,18 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 
     const user = result.rows[0];
-    
-    // Generate reset token (using JWT for simplicity)
     const resetToken = jwt.sign(
       { userId: user.id, purpose: 'password_reset' }, 
       JWT_SECRET, 
       { expiresIn: '1h' }
     );
 
-    // Store reset token in database with expiry (1 hour)
     await con.query(
       'UPDATE users SET reset_token = $1, reset_token_expiry = NOW() + INTERVAL \'1 hour\' WHERE id = $2',
       [resetToken, user.id]
     );
 
-    // Create reset link
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
-    
-    // Email content
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: user.email,
@@ -313,11 +320,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             <h2 style="color: #D0140F; margin: 0;">Shark Tank Idea Platform</h2>
             <p style="color: #666; margin: 5px 0;">Reset Your Password</p>
           </div>
-          
           <p>Hello ${user.full_name},</p>
-          
-          <p>You recently requested to reset your password for your Shark Tank Idea Platform account. Click the button below to reset it:</p>
-          
+          <p>You requested to reset your password. Click below to reset it:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetLink}" 
                style="background-color: #D0140F; color: white; padding: 14px 28px; 
@@ -326,48 +330,39 @@ app.post('/api/auth/forgot-password', async (req, res) => {
               Reset Password
             </a>
           </div>
-          
-          <p>Or copy and paste this URL into your browser:</p>
+          <p>Or copy and paste this URL:</p>
           <p style="background-color: #f5f5f5; padding: 12px; border-radius: 4px; word-break: break-all; font-size: 14px;">
             ${resetLink}
           </p>
-          
-          <p>This password reset link will expire in <strong>1 hour</strong> for security reasons.</p>
-          
-          <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-          
+          <p>This link will expire in <strong>1 hour</strong>.</p>
+          <p>If you did not request this, please ignore or contact support.</p>
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
-          
           <p style="color: #999; font-size: 12px; text-align: center;">
-            This is an automated message. Please do not reply to this email.<br>
+            This is an automated message. Do not reply.<br>
             © 2024 Shark Tank Idea Platform. All rights reserved.
           </p>
         </div>
       `
     };
 
-    // Send email
     try {
       await emailTransporter.sendMail(mailOptions);
       console.log(`✅ Password reset email sent to: ${user.email}`);
     } catch (emailError) {
       console.error('❌ Failed to send email:', emailError.message);
-      // Even if email fails, we still return success to the user
-      // but log the error for debugging
     }
 
     res.json({ 
       success: true, 
       message: 'If the email exists, a password reset link has been sent' 
     });
-
   } catch (err) {
-    console.error('Forgot password error:', err);
+    console.error('Forgot password error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Reset password - validate token and set new password
+// Reset password
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -380,7 +375,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
-    // Verify the token
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
@@ -388,12 +382,10 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
-    // Check if token is for password reset
     if (decoded.purpose !== 'password_reset') {
       return res.status(400).json({ error: 'Invalid reset token' });
     }
 
-    // Check if token exists in database and hasn't expired
     const result = await con.query(
       'SELECT id, reset_token_expiry FROM users WHERE id = $1 AND reset_token = $2',
       [decoded.userId, token]
@@ -404,17 +396,13 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 
     const user = result.rows[0];
-
-    // Check if token has expired
     if (new Date() > new Date(user.reset_token_expiry)) {
       return res.status(400).json({ error: 'Reset token has expired' });
     }
 
-    // Hash new password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update password and clear reset token
     await con.query(
       'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, decoded.userId]
@@ -425,14 +413,12 @@ app.post('/api/auth/reset-password', async (req, res) => {
       message: 'Password has been reset successfully' 
     });
   } catch (err) {
-    console.error('Reset password error:', err);
+    console.error('Reset password error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ===== PITCHES ROUTES ===== //
-
-// Get all pitches for authenticated entrepreneur
+// Get all pitches
 app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -454,12 +440,12 @@ app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
 
     res.json({ pitches: result.rows });
   } catch (err) {
-    console.error('Get pitches error:', err);
+    console.error('Get pitches error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get single pitch details
+// Get single pitch
 app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -486,13 +472,14 @@ app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
 
     res.json({ pitch: result.rows[0] });
   } catch (err) {
-    console.error('Get pitch error:', err);
+    console.error('Get pitch error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Create new pitch
 app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
+  console.log('Pitch creation request:', req.body, 'User:', req.user);
   try {
     const userId = req.user.id;
     const {
@@ -510,9 +497,14 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
       revenue
     } = req.body;
 
-    // Validation
-    if (!name || !description || !fundingGoal || !equityOffered) {
-      return res.status(400).json({ error: 'Required fields are missing' });
+    if (!name || !description || fundingGoal == null || equityOffered == null) {
+      return res.status(400).json({ error: 'Name, description, funding goal, and equity offered are required' });
+    }
+    if (isNaN(fundingGoal) || fundingGoal <= 0) {
+      return res.status(400).json({ error: 'Funding goal must be a positive number' });
+    }
+    if (isNaN(equityOffered) || equityOffered < 0 || equityOffered > 100) {
+      return res.status(400).json({ error: 'Equity offered must be between 0 and 100' });
     }
 
     const result = await con.query(
@@ -538,7 +530,7 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
       pitch: result.rows[0]
     });
   } catch (err) {
-    console.error('Create pitch error:', err);
+    console.error('Create pitch error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -563,7 +555,6 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
       revenue
     } = req.body;
 
-    // Check if pitch belongs to user
     const checkResult = await con.query(
       'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
       [id, userId]
@@ -596,7 +587,7 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
       pitch: result.rows[0]
     });
   } catch (err) {
-    console.error('Update pitch error:', err);
+    console.error('Update pitch error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -607,7 +598,6 @@ app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) 
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Check if pitch belongs to user
     const checkResult = await con.query(
       'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
       [id, userId]
@@ -624,12 +614,10 @@ app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) 
 
     res.json({ message: 'Pitch deleted successfully' });
   } catch (err) {
-    console.error('Delete pitch error:', err);
+    console.error('Delete pitch error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// ===== STARTUP INFO ROUTES ===== //
 
 // Get startup information
 app.get('/api/entrepreneur/startup-info', authenticateToken, async (req, res) => {
@@ -662,7 +650,7 @@ app.get('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Get startup info error:', err);
+    console.error('Get startup info error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -673,14 +661,12 @@ app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
     const userId = req.user.id;
     const { founded, teamSize, industry, location, businessModel, revenue } = req.body;
 
-    // Check if profile exists
     const checkResult = await con.query(
       'SELECT user_id FROM user_profiles WHERE user_id = $1',
       [userId]
     );
 
     if (checkResult.rows.length === 0) {
-      // Create new profile
       await con.query(
         `INSERT INTO user_profiles 
           (user_id, founded_year, team_size, industry, location, business_model, revenue)
@@ -688,7 +674,6 @@ app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
         [userId, founded, teamSize, industry, location, businessModel, revenue]
       );
     } else {
-      // Update existing profile
       await con.query(
         `UPDATE user_profiles SET 
           founded_year = $1, team_size = $2, industry = $3, 
@@ -704,42 +689,37 @@ app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
       startupInfo: { founded, teamSize, industry, location, businessModel, revenue }
     });
   } catch (err) {
-    console.error('Update startup info error:', err);
+    console.error('Update startup info error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// ===== FILE UPLOAD ROUTE ===== //
-
-app.post('/api/upload/pitch-file', authenticateToken, async (req, res) => {
-  try {
-    // Yeh basic implementation hai - aapko proper file upload implement karna hoga
-    // Multer ya koi aur library use kar sakte hain
-    const { fileName, fileType, base64Data } = req.body;
-
-    if (!fileName || !fileType || !base64Data) {
-      return res.status(400).json({ error: 'File data is required' });
+// File upload route
+app.post('/api/upload/pitch-file', authenticateToken, (req, res) => {
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error('File upload error:', err.message);
+      return res.status(400).json({ error: err.message });
     }
-
-    // File save logic yahan add karein
-    // Temporary response
-    const fileUrl = `https://your-storage-bucket.com/pitches/${Date.now()}-${fileName}`;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
     
+    const fileUrl = `${process.env.NEXT_PUBLIC_API_URL}/uploads/${req.file.filename}`;
+    console.log('File uploaded:', fileUrl);
     res.json({ 
       message: 'File uploaded successfully',
       fileUrl 
     });
-  } catch (err) {
-    console.error('File upload error:', err);
-    res.status(500).json({ error: 'File upload failed' });
-  }
+  });
 });
-
-
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('JWT_SECRET:', JWT_SECRET ? 'Set' : 'Not set');
+  console.log('Frontend URL:', process.env.FRONTEND_URL);
+  console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
 });
 
 // Handle graceful shutdown
