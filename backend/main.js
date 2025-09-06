@@ -5,18 +5,38 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
-const con = require('./db'); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-jwt-key-minimum-32-characters-change-this';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${PORT}`;
 
 if (!JWT_SECRET) {
   console.error('❌ JWT_SECRET is not defined in .env');
   process.exit(1);
 }
+
+// Database connection
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'postgres',
+  port: process.env.DB_PORT || 5432,
+  password: process.env.DB_PASSWORD || 'sheraz12',
+  database: process.env.DB_NAME || 'unifyp'
+});
+
+// Test database connection
+pool.connect((err) => {
+  if (err) {
+    console.error('❌ Database connection error:', err.stack);
+    process.exit(1);
+  } else {
+    console.log('✅ Connected to database');
+  }
+});
 
 // Middleware
 app.use(cors({
@@ -24,11 +44,11 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 // Configure Multer for file uploads
 const storage = multer.diskStorage({
-  destination: './uploads/',
+  destination: './Uploads/',
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   }
@@ -38,15 +58,18 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const fileTypes = /pdf|doc|docx|mp4|mov|avi/;
+    const fileTypes = /pdf|doc|docx|mp4|mov|avi|jpeg|jpg|png/;
     const extname = fileTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = fileTypes.test(file.mimetype);
     if (extname && mimetype) {
       return cb(null, true);
     }
-    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, MP4, MOV, AVI allowed.'));
+    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, MP4, MOV, AVI, JPEG, JPG, PNG allowed.'));
   }
-}).single('file');
+});
+
+const pitchUpload = upload.single('file');
+const profileImageUpload = upload.single('profileImage');
 
 // Email transporter configuration
 let emailTransporter;
@@ -55,8 +78,8 @@ try {
   emailTransporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: emailPassword
+      user: process.env.EMAIL_USER || 'sherazkhan48477@gmail.com',
+      pass: emailPassword || 'qgoxaincifjkrggs'
     }
   });
 
@@ -87,7 +110,7 @@ const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  console.log('Received token:', token ? 'Present' : 'Missing'); // Debug log
+  console.log('Received token:', token ? 'Present' : 'Missing');
   if (!token) {
     console.log('No token provided');
     return res.status(401).json({ error: 'Access token required' });
@@ -96,8 +119,9 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('Decoded token:', decoded);
-    const result = await con.query(
-      'SELECT id, full_name, email, role FROM users WHERE id = $1',
+    const result = await pool.query(
+      `SELECT id, full_name, email, role, title, bio, phone, website, linkedin, twitter, profile_image_url 
+       FROM users WHERE id = $1`,
       [decoded.userId]
     );
 
@@ -120,10 +144,10 @@ const authenticateToken = async (req, res, next) => {
 // User registration
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    const { fullName, email, password, role, title, bio, phone, website, linkedin, twitter } = req.body;
 
     if (!fullName || !email || !password || !role) {
-      return res.status(400).json({ error: 'All fields are required' });
+      return res.status(400).json({ error: 'Full name, email, password, and role are required' });
     }
 
     if (password.length < 8) {
@@ -134,7 +158,7 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
-    const userExists = await con.query(
+    const userExists = await pool.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
     );
@@ -146,16 +170,19 @@ app.post('/api/auth/signup', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    const result = await con.query(
-      'INSERT INTO users (full_name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, full_name, email, role',
-      [fullName, email, hashedPassword, role]
+    const result = await pool.query(
+      `INSERT INTO users (full_name, email, password, role, title, bio, phone, website, linkedin, twitter) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING id, full_name, email, role, title, bio, phone, website, linkedin, twitter, profile_image_url`,
+      [fullName, email, hashedPassword, role, title || null, bio || null, phone || null, website || null, linkedin || null, twitter || null]
     );
 
-    const token = generateToken(result.rows[0].id, role);
+    const user = result.rows[0];
+    const token = generateToken(user.id, user.role);
 
     res.status(201).json({
       message: 'User created successfully',
-      user: result.rows[0],
+      user,
       token
     });
   } catch (err) {
@@ -173,8 +200,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const result = await con.query(
-      'SELECT id, full_name, email, password, role FROM users WHERE email = $1',
+    const result = await pool.query(
+      `SELECT id, full_name, email, password, role, title, bio, phone, website, linkedin, twitter, profile_image_url 
+       FROM users WHERE email = $1`,
       [email]
     );
 
@@ -213,18 +241,22 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 });
 
 // Update user profile
-app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+app.put('/api/auth/update-profile', authenticateToken, async (req, res) => {
   try {
-    const { fullName } = req.body;
+    const { fullName, title, bio, phone, website, linkedin, twitter } = req.body;
     const userId = req.user.id;
 
     if (!fullName) {
       return res.status(400).json({ error: 'Full name is required' });
     }
 
-    const result = await con.query(
-      'UPDATE users SET full_name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, full_name, email, role',
-      [fullName, userId]
+    const result = await pool.query(
+      `UPDATE users 
+       SET full_name = $1, title = $2, bio = $3, phone = $4, website = $5, linkedin = $6, twitter = $7, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $8 
+       RETURNING id, full_name, email, role, title, bio, phone, website, linkedin, twitter, profile_image_url`,
+      [fullName, title || null, bio || null, phone || null, website || null, linkedin || null, twitter || null, userId]
     );
 
     res.json({
@@ -235,6 +267,41 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     console.error('Update profile error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Profile image upload
+app.post('/api/upload/profile-image', authenticateToken, (req, res) => {
+  profileImageUpload(req, res, async (err) => {
+    if (err) {
+      console.error('Profile image upload error:', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileUrl = `${API_BASE_URL}/uploads/${req.file.filename}`;
+    const userId = req.user.id;
+
+    try {
+      const result = await pool.query(
+        `UPDATE users 
+         SET profile_image_url = $1, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $2 
+         RETURNING id, full_name, email, role, title, bio, phone, website, linkedin, twitter, profile_image_url`,
+        [fileUrl, userId]
+      );
+
+      console.log('Profile image uploaded:', fileUrl);
+      res.json({
+        message: 'Profile image uploaded successfully',
+        user: result.rows[0]
+      });
+    } catch (err) {
+      console.error('Profile image update error:', err.stack);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 });
 
 // Change password
@@ -251,7 +318,7 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 8 characters long' });
     }
 
-    const result = await con.query(
+    const result = await pool.query(
       'SELECT password FROM users WHERE id = $1',
       [userId]
     );
@@ -264,7 +331,7 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await con.query(
+    await pool.query(
       'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, userId]
     );
@@ -285,33 +352,33 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const result = await con.query(
+    const result = await pool.query(
       'SELECT id, email, full_name FROM users WHERE email = $1',
       [email]
     );
 
     if (result.rows.length === 0) {
-      return res.json({ 
-        success: true, 
-        message: 'If the email exists, a password reset link has been sent' 
+      return res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent'
       });
     }
 
     const user = result.rows[0];
     const resetToken = jwt.sign(
-      { userId: user.id, purpose: 'password_reset' }, 
-      JWT_SECRET, 
+      { userId: user.id, purpose: 'password_reset' },
+      JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    await con.query(
+    await pool.query(
       'UPDATE users SET reset_token = $1, reset_token_expiry = NOW() + INTERVAL \'1 hour\' WHERE id = $2',
       [resetToken, user.id]
     );
 
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
     const mailOptions = {
-      from: process.env.EMAIL_FROM,
+      from: process.env.EMAIL_FROM || 'sherazkhan48477@gmail.com',
       to: user.email,
       subject: 'Password Reset Request - Shark Tank Idea Platform',
       html: `
@@ -339,7 +406,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
           <p style="color: #999; font-size: 12px; text-align: center;">
             This is an automated message. Do not reply.<br>
-            © 2024 Shark Tank Idea Platform. All rights reserved.
+            © 2025 Shark Tank Idea Platform. All rights reserved.
           </p>
         </div>
       `
@@ -352,9 +419,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       console.error('❌ Failed to send email:', emailError.message);
     }
 
-    res.json({ 
-      success: true, 
-      message: 'If the email exists, a password reset link has been sent' 
+    res.json({
+      success: true,
+      message: 'If the email exists, a password reset link has been sent'
     });
   } catch (err) {
     console.error('Forgot password error:', err.stack);
@@ -386,7 +453,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Invalid reset token' });
     }
 
-    const result = await con.query(
+    const result = await pool.query(
       'SELECT id, reset_token_expiry FROM users WHERE id = $1 AND reset_token = $2',
       [decoded.userId, token]
     );
@@ -403,14 +470,14 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await con.query(
+    await pool.query(
       'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, decoded.userId]
     );
 
-    res.json({ 
-      success: true, 
-      message: 'Password has been reset successfully' 
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully'
     });
   } catch (err) {
     console.error('Reset password error:', err.stack);
@@ -421,21 +488,23 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Get all pitches
 app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
-    const result = await con.query(
+    const result = await pool.query(
       `SELECT 
-        p.id, p.name, p.description, p.status, 
-        p.funding_goal as "fundingGoal", p.equity_offered as "equityOffered",
-        p.pitch_doc_url as "pitchDocUrl", p.pitch_video_url as "pitchVideoUrl",
-        p.created_at as "dateSubmitted",
-        COUNT(i.id) as "investorCount"
-      FROM pitches p 
-      LEFT JOIN investments i ON p.id = i.pitch_id
-      WHERE p.user_id = $1
-      GROUP BY p.id
-      ORDER BY p.created_at DESC`,
-      [userId]
+        id, name, description, status, 
+        funding_goal AS "fundingGoal", equity_offered AS "equityOffered",
+        pitch_doc_url AS "pitchDocUrl", pitch_video_url AS "pitchVideoUrl",
+        industry, business_model AS "businessModel", team_size AS "teamSize",
+        founded_year AS "foundedYear", location, revenue,
+        created_at AS "dateSubmitted",
+        (SELECT COUNT(*) FROM investments WHERE pitch_id = pitches.id) AS "investorCount"
+      FROM pitches 
+      WHERE user_id = $1
+      ORDER BY created_at DESC`,
+      [req.user.id]
     );
 
     res.json({ pitches: result.rows });
@@ -448,22 +517,22 @@ app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
 // Get single pitch
 app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
-    const result = await con.query(
+    const { id } = req.params;
+    const result = await pool.query(
       `SELECT 
         p.*, 
-        u.full_name as "userName",
-        u.email as "userEmail",
-        COUNT(i.id) as "investorCount",
-        COALESCE(SUM(i.amount), 0) as "totalInvested"
+        u.full_name AS "userName",
+        u.email AS "userEmail",
+        (SELECT COUNT(*) FROM investments WHERE pitch_id = p.id) AS "investorCount",
+        COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = p.id), 0) AS "totalInvested"
       FROM pitches p 
       LEFT JOIN users u ON p.user_id = u.id
-      LEFT JOIN investments i ON p.id = i.pitch_id
-      WHERE p.id = $1 AND p.user_id = $2
-      GROUP BY p.id, u.full_name, u.email`,
-      [id, userId]
+      WHERE p.id = $1 AND p.user_id = $2`,
+      [id, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -479,9 +548,11 @@ app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
 
 // Create new pitch
 app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
-  console.log('Pitch creation request:', req.body, 'User:', req.user);
   try {
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     const {
       name,
       description,
@@ -506,8 +577,17 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
     if (isNaN(equityOffered) || equityOffered < 0 || equityOffered > 100) {
       return res.status(400).json({ error: 'Equity offered must be between 0 and 100' });
     }
+    if (teamSize !== null && (isNaN(teamSize) || teamSize < 0)) {
+      return res.status(400).json({ error: 'Team size must be a non-negative integer or null' });
+    }
+    if (foundedYear !== null && (isNaN(foundedYear) || foundedYear < 1900 || foundedYear > new Date().getFullYear())) {
+      return res.status(400).json({ error: `Founded year must be between 1900 and ${new Date().getFullYear()} or null` });
+    }
+    if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
+      return res.status(400).json({ error: 'Revenue must be a non-negative integer or null' });
+    }
 
-    const result = await con.query(
+    const result = await pool.query(
       `INSERT INTO pitches 
         (user_id, name, description, funding_goal, equity_offered, 
          pitch_doc_url, pitch_video_url, industry, business_model, 
@@ -515,13 +595,25 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
        RETURNING 
          id, name, description, status, 
-         funding_goal as "fundingGoal", equity_offered as "equityOffered",
-         pitch_doc_url as "pitchDocUrl", pitch_video_url as "pitchVideoUrl",
-         created_at as "dateSubmitted"`,
+         funding_goal AS "fundingGoal", equity_offered AS "equityOffered",
+         pitch_doc_url AS "pitchDocUrl", pitch_video_url AS "pitchVideoUrl",
+         industry, business_model AS "businessModel", team_size AS "teamSize",
+         founded_year AS "foundedYear", location, revenue,
+         created_at AS "dateSubmitted"`,
       [
-        userId, name, description, parseFloat(fundingGoal), parseFloat(equityOffered),
-        pitchDocUrl, pitchVideoUrl, industry, businessModel,
-        teamSize, foundedYear, location, revenue
+        req.user.id,
+        name,
+        description,
+        fundingGoal, // Already validated as a number
+        equityOffered, // Already validated as a number
+        pitchDocUrl || null,
+        pitchVideoUrl || null,
+        industry || null,
+        businessModel || null,
+        teamSize, // Either a valid integer or null
+        foundedYear, // Either a valid integer or null
+        location || null,
+        revenue // Either a valid integer or null
       ]
     );
 
@@ -530,7 +622,10 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
       pitch: result.rows[0]
     });
   } catch (err) {
-    console.error('Create pitch error:', err.stack);
+    console.error('Create pitch error:', err.message);
+    if (err.message.includes('invalid input syntax for type integer')) {
+      return res.status(400).json({ error: 'Invalid numeric input for team size, founded year, or revenue' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -538,8 +633,11 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
 // Update pitch
 app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     const { id } = req.params;
-    const userId = req.user.id;
     const {
       name,
       description,
@@ -555,30 +653,64 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
       revenue
     } = req.body;
 
-    const checkResult = await con.query(
+    if (!name || !description || fundingGoal == null || equityOffered == null) {
+      return res.status(400).json({ error: 'Name, description, funding goal, and equity offered are required' });
+    }
+    if (isNaN(fundingGoal) || fundingGoal <= 0) {
+      return res.status(400).json({ error: 'Funding goal must be a positive number' });
+    }
+    if (isNaN(equityOffered) || equityOffered < 0 || equityOffered > 100) {
+      return res.status(400).json({ error: 'Equity offered must be between 0 and 100' });
+    }
+    if (teamSize !== null && (isNaN(teamSize) || teamSize < 0)) {
+      return res.status(400).json({ error: 'Team size must be a non-negative integer or null' });
+    }
+    if (foundedYear !== null && (isNaN(foundedYear) || foundedYear < 1900 || foundedYear > new Date().getFullYear())) {
+      return res.status(400).json({ error: `Founded year must be between 1900 and ${new Date().getFullYear()} or null` });
+    }
+    if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
+      return res.status(400).json({ error: 'Revenue must be a non-negative integer or null' });
+    }
+
+    const checkResult = await pool.query(
       'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      [id, req.user.id]
     );
 
     if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Pitch not found' });
     }
 
-    const result = await con.query(
-      `UPDATE pitches SET 
-        name = $1, description = $2, funding_goal = $3, equity_offered = $4,
-        pitch_doc_url = $5, pitch_video_url = $6, industry = $7, business_model = $8,
-        team_size = $9, founded_year = $10, location = $11, revenue = $12,
-        updated_at = CURRENT_TIMESTAMP
+    const result = await pool.query(
+      `UPDATE pitches 
+       SET 
+         name = $1, description = $2, funding_goal = $3, equity_offered = $4,
+         pitch_doc_url = $5, pitch_video_url = $6, industry = $7, business_model = $8,
+         team_size = $9, founded_year = $10, location = $11, revenue = $12,
+         updated_at = CURRENT_TIMESTAMP
        WHERE id = $13 AND user_id = $14
        RETURNING 
          id, name, description, status, 
-         funding_goal as "fundingGoal", equity_offered as "equityOffered",
-         pitch_doc_url as "pitchDocUrl", pitch_video_url as "pitchVideoUrl"`,
+         funding_goal AS "fundingGoal", equity_offered AS "equityOffered",
+         pitch_doc_url AS "pitchDocUrl", pitch_video_url AS "pitchVideoUrl",
+         industry, business_model AS "businessModel", team_size AS "teamSize",
+         founded_year AS "foundedYear", location, revenue,
+         created_at AS "dateSubmitted"`,
       [
-        name, description, parseFloat(fundingGoal), parseFloat(equityOffered),
-        pitchDocUrl, pitchVideoUrl, industry, businessModel,
-        teamSize, foundedYear, location, revenue, id, userId
+        name,
+        description,
+        fundingGoal,
+        equityOffered,
+        pitchDocUrl || null,
+        pitchVideoUrl || null,
+        industry || null,
+        businessModel || null,
+        teamSize,
+        foundedYear,
+        location || null,
+        revenue,
+        id,
+        req.user.id
       ]
     );
 
@@ -587,7 +719,10 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
       pitch: result.rows[0]
     });
   } catch (err) {
-    console.error('Update pitch error:', err.stack);
+    console.error('Update pitch error:', err.message);
+    if (err.message.includes('invalid input syntax for type integer')) {
+      return res.status(400).json({ error: 'Invalid numeric input for team size, founded year, or revenue' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -595,21 +730,23 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
 // Delete pitch
 app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
-    const checkResult = await con.query(
+    const { id } = req.params;
+    const checkResult = await pool.query(
       'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      [id, req.user.id]
     );
 
     if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Pitch not found' });
     }
 
-    await con.query(
+    await pool.query(
       'DELETE FROM pitches WHERE id = $1 AND user_id = $2',
-      [id, userId]
+      [id, req.user.id]
     );
 
     res.json({ message: 'Pitch deleted successfully' });
@@ -622,19 +759,21 @@ app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) 
 // Get startup information
 app.get('/api/entrepreneur/startup-info', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
-    const result = await con.query(
+    const result = await pool.query(
       `SELECT 
-        founded_year as "founded",
-        team_size as "teamSize",
+        founded_year AS "founded",
+        team_size AS "teamSize",
         industry,
         location,
-        business_model as "businessModel",
+        business_model AS "businessModel",
         revenue
       FROM user_profiles 
       WHERE user_id = $1`,
-      [userId]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -658,60 +797,104 @@ app.get('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
 // Update startup information
 app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     const { founded, teamSize, industry, location, businessModel, revenue } = req.body;
 
-    const checkResult = await con.query(
+    if (teamSize !== null && teamSize !== '' && (isNaN(teamSize) || teamSize < 0)) {
+      return res.status(400).json({ error: 'Team size must be a non-negative integer or empty' });
+    }
+    if (founded !== null && founded !== '' && (isNaN(founded) || founded < 1900 || founded > new Date().getFullYear())) {
+      return res.status(400).json({ error: `Founded year must be between 1900 and ${new Date().getFullYear()} or empty` });
+    }
+    if (revenue !== null && revenue !== '' && (isNaN(revenue) || revenue < 0)) {
+      return res.status(400).json({ error: 'Revenue must be a non-negative integer or empty' });
+    }
+
+    const checkResult = await pool.query(
       'SELECT user_id FROM user_profiles WHERE user_id = $1',
-      [userId]
+      [req.user.id]
     );
 
     if (checkResult.rows.length === 0) {
-      await con.query(
+      await pool.query(
         `INSERT INTO user_profiles 
           (user_id, founded_year, team_size, industry, location, business_model, revenue)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [userId, founded, teamSize, industry, location, businessModel, revenue]
+        [req.user.id, founded ? parseInt(founded) : null, teamSize ? parseInt(teamSize) : null, industry || null, location || null, businessModel || null, revenue ? parseInt(revenue) : null]
       );
     } else {
-      await con.query(
-        `UPDATE user_profiles SET 
-          founded_year = $1, team_size = $2, industry = $3, 
-          location = $4, business_model = $5, revenue = $6,
-          updated_at = CURRENT_TIMESTAMP
+      await pool.query(
+        `UPDATE user_profiles 
+         SET 
+           founded_year = $1, team_size = $2, industry = $3, 
+           location = $4, business_model = $5, revenue = $6,
+           updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $7`,
-        [founded, teamSize, industry, location, businessModel, revenue, userId]
+        [founded ? parseInt(founded) : null, teamSize ? parseInt(teamSize) : null, industry || null, location || null, businessModel || null, revenue ? parseInt(revenue) : null, req.user.id]
       );
     }
 
-    res.json({ 
+    res.json({
       message: 'Startup information updated successfully',
       startupInfo: { founded, teamSize, industry, location, businessModel, revenue }
     });
   } catch (err) {
-    console.error('Update startup info error:', err.stack);
+    console.error('Update startup info error:', err.message);
+    if (err.message.includes('invalid input syntax for type integer')) {
+      return res.status(400).json({ error: 'Invalid numeric input for team size, founded year, or revenue' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// File upload route
+// File upload for pitch
 app.post('/api/upload/pitch-file', authenticateToken, (req, res) => {
-  upload(req, res, async (err) => {
+  pitchUpload(req, res, async (err) => {
     if (err) {
-      console.error('File upload error:', err.message);
+      console.error('Pitch file upload error:', err.message);
       return res.status(400).json({ error: err.message });
     }
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    
-    const fileUrl = `${process.env.NEXT_PUBLIC_API_URL}/uploads/${req.file.filename}`;
-    console.log('File uploaded:', fileUrl);
-    res.json({ 
-      message: 'File uploaded successfully',
-      fileUrl 
+
+    const fileUrl = `${API_BASE_URL}/uploads/${req.file.filename}`;
+    console.log('Pitch file uploaded:', fileUrl);
+    res.json({
+      message: 'Pitch file uploaded successfully',
+      fileUrl
     });
   });
+});
+
+// Get entrepreneur stats
+app.get('/api/entrepreneur/stats', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const stats = await pool.query(
+      `SELECT 
+        COUNT(*) AS total_pitches,
+        COUNT(*) FILTER (WHERE status = 'Funded') AS funded_pitches,
+        COALESCE(SUM(funding_goal) FILTER (WHERE status = 'Funded'), 0) AS total_raised
+      FROM pitches WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    res.json({
+      totalPitches: parseInt(stats.rows[0].total_pitches, 10),
+      fundedPitches: parseInt(stats.rows[0].funded_pitches, 10),
+      totalRaised: parseInt(stats.rows[0].total_raised, 10)
+    });
+  } catch (err) {
+    console.error('Get stats error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Start server
@@ -719,12 +902,13 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('JWT_SECRET:', JWT_SECRET ? 'Set' : 'Not set');
   console.log('Frontend URL:', process.env.FRONTEND_URL);
-  console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
+  console.log('API URL:', API_BASE_URL);
 });
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
-  await con.end();
+  await pool.end();
+  console.log('Database connection closed');
   process.exit(0);
 });

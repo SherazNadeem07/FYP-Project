@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import EntrepreneurSidebar from '../EntrepreneurNavbar';
+import EntrepreneurSidebar from '../../../components/EntrepreneurNavbar';
 import { FiMenu } from 'react-icons/fi';
 
 export default function EntrepreneurLayout({ children }) {

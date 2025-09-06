@@ -1,45 +1,99 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { loginUser } from '../../../../Redux/Slices/AuthSlice';
 import { FiEdit, FiSave, FiX, FiUpload } from 'react-icons/fi';
 
 export default function ProfilePage() {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    name: 'John Doe',
-    title: 'Serial Entrepreneur',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    bio: 'Tech enthusiast with 5+ years of experience in building startups.',
-    website: 'https://johndoe.com',
-    linkedin: 'https://linkedin.com/in/johndoe',
-    twitter: 'https://twitter.com/johndoe',
+    name: '',
+    title: '',
+    email: '',
+    phone: '',
+    bio: '',
+    website: '',
+    linkedin: '',
+    twitter: '',
+    profileImage: '',
   });
-  const [profileImage, setProfileImage] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        name: user.full_name || '',
+        title: user.title || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        website: user.website || '',
+        linkedin: user.linkedin || '',
+        twitter: user.twitter || '',
+        profileImage: user.profile_image_url || '',
+      });
+    }
+  }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setProfile({ ...profile, [name]: value });
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result);
-      };
-      reader.readAsDataURL(file);
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload/profile-image`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Image upload failed');
+        setProfile({ ...profile, profileImage: data.user.profile_image_url });
+        dispatch(loginUser({ user: data.user, token: localStorage.getItem('token') }));
+      } catch (err) {
+        setError(err.message);
+      }
     }
   };
 
-  const handleSave = () => {
-    console.log('Profile updated:', profile);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/update-profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          fullName: profile.name,
+          title: profile.title,
+          bio: profile.bio,
+          phone: profile.phone,
+          website: profile.website,
+          linkedin: profile.linkedin,
+          twitter: profile.twitter,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Profile update failed');
+      dispatch(loginUser({ user: data.user, token: localStorage.getItem('token') }));
+      setIsEditing(false);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
     <div className="bg-[#2C2C2C] px-4 py-6 sm:px-6 lg:px-10 text-[#E8E8E8] rounded-lg">
-      {/* Header */}
+      {error && <p className="text-red-500 mb-4">{error}</p>}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 className="text-xl sm:text-2xl font-bold">Your Profile</h1>
         <div className="flex gap-2 flex-wrap">
@@ -71,17 +125,16 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
-
-      {/* Main Content */}
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Profile Image */}
         <div className="flex flex-col items-center md:items-start">
           <div className="relative">
             <div className="w-32 h-32 rounded-full bg-[#383838] flex items-center justify-center overflow-hidden">
-              {profileImage ? (
-                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              {profile.profileImage ? (
+                <img src={profile.profileImage} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-4xl font-bold text-[#D0140F]">JD</span>
+                <span className="text-4xl font-bold text-[#D0140F]">
+                  {profile.name ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'JD'}
+                </span>
               )}
             </div>
             {isEditing && (
@@ -102,8 +155,6 @@ export default function ProfilePage() {
             </p>
           )}
         </div>
-
-        {/* Profile Info */}
         <div className="flex-1 space-y-4">
           {[
             { label: 'Full Name', name: 'name', value: profile.name },
@@ -135,7 +186,6 @@ export default function ProfilePage() {
               )}
             </div>
           ))}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {['email', 'phone'].map((key) => (
               <div key={key}>
@@ -154,8 +204,6 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
-
-          {/* Social Links */}
           <div>
             <h3 className="text-sm font-medium text-[#B3B3B3] mb-2">Social Links</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,6 +16,7 @@ export default function EntrepreneurDashboard() {
     revenue: ''
   });
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
   const [newPitch, setNewPitch] = useState({
     name: '',
     description: '',
@@ -29,6 +29,7 @@ export default function EntrepreneurDashboard() {
   const { token } = useSelector((state) => state.auth);
 
   useEffect(() => {
+    setIsClient(true);
     const storedToken = localStorage.getItem('token') || token;
     console.log('Token check - localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing');
     if (!storedToken) {
@@ -48,33 +49,43 @@ export default function EntrepreneurDashboard() {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       
       const pitchesResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/pitches`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        credentials: 'include',
       });
       
       if (!pitchesResponse.ok) {
-        const errorText = await pitchesResponse.text();
-        console.error('Pitches response:', pitchesResponse.status, errorText);
-        throw new Error(`HTTP error! status: ${pitchesResponse.status}`);
+        const errorData = await pitchesResponse.json();
+        console.error('Pitches response:', pitchesResponse.status, errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${pitchesResponse.status}`);
       }
       
       const pitchesData = await pitchesResponse.json();
       setPitches(pitchesData.pitches || []);
 
       const infoResponse = await fetch(`${API_BASE_URL}/api/entrepreneur/startup-info`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        credentials: 'include',
       });
       
       if (!infoResponse.ok) {
-        const errorText = await infoResponse.text();
-        console.error('Startup info response:', infoResponse.status, errorText);
-        throw new Error(`HTTP error! status: ${infoResponse.status}`);
+        const errorData = await infoResponse.json();
+        console.error('Startup info response:', infoResponse.status, errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${infoResponse.status}`);
       }
       
       const infoData = await infoResponse.json();
-      setStartupInfo(infoData);
+      setStartupInfo({
+        founded: infoData.founded || '',
+        teamSize: infoData.teamSize || '',
+        industry: infoData.industry || '',
+        location: infoData.location || '',
+        businessModel: infoData.businessModel || '',
+        revenue: infoData.revenue || ''
+      });
     } catch (error) {
       console.error('Error fetching data:', error.message);
-      if (error.message.includes('No token found')) {
+      if (error.message.includes('No token found') || error.message.includes('401')) {
+        localStorage.removeItem('token');
         router.push('/auth');
       }
       setPitches([]);
@@ -93,27 +104,120 @@ export default function EntrepreneurDashboard() {
     setNewPitch({ ...newPitch, [name]: files[0] });
   };
 
+  const handleStartupInfoChange = (e) => {
+    const { name, value } = e.target;
+    setStartupInfo({ ...startupInfo, [name]: value });
+  };
+
+  const handleStartupInfoSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate numeric fields
+    const teamSize = startupInfo.teamSize ? parseInt(startupInfo.teamSize) : null;
+    const foundedYear = startupInfo.founded ? parseInt(startupInfo.founded) : null;
+    const revenue = startupInfo.revenue ? parseInt(startupInfo.revenue) : null;
+
+    if (teamSize !== null && (isNaN(teamSize) || teamSize < 0)) {
+      alert('Team Size must be a valid non-negative number');
+      return;
+    }
+
+    if (foundedYear !== null && (isNaN(foundedYear) || foundedYear < 1900 || foundedYear > new Date().getFullYear())) {
+      alert('Founded Year must be a valid year between 1900 and ' + new Date().getFullYear());
+      return;
+    }
+
+    if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
+      alert('Revenue must be a valid non-negative number');
+      return;
+    }
+
+    try {
+      const authToken = localStorage.getItem('token') || token;
+      if (!authToken) {
+        throw new Error('No token found');
+      }
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+      const response = await fetch(`${API_BASE_URL}/api/entrepreneur/startup-info`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          founded: startupInfo.founded,
+          teamSize: startupInfo.teamSize,
+          industry: startupInfo.industry || null,
+          location: startupInfo.location || null,
+          businessModel: startupInfo.businessModel || null,
+          revenue: startupInfo.revenue,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Startup info updated:', result);
+        alert('Startup information updated successfully!');
+        await fetchData(authToken); // Refresh startupInfo to reflect server data
+        // Note: No need to manually reset startupInfo here; fetchData updates it with server values
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to update startup info:', response.status, errorData);
+        alert(`Failed to update startup info: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating startup info:', error.message);
+      alert(`Error: ${error.message}`);
+      if (error.message.includes('No token found') || error.message.includes('401')) {
+        localStorage.removeItem('token');
+        router.push('/auth');
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!newPitch.name || !newPitch.description) {
       alert('Startup Name and Short Description are required');
       return;
     }
-    
+
     const fundingGoal = parseFloat(newPitch.fundingGoal);
     const equityOffered = parseFloat(newPitch.equityOffered);
-    
+
     if (isNaN(fundingGoal) || fundingGoal <= 0) {
       alert('Funding Goal must be a positive number');
       return;
     }
-    
+
     if (isNaN(equityOffered) || equityOffered < 0 || equityOffered > 100) {
       alert('Equity Offered must be between 0 and 100');
       return;
     }
-    
+
+    // Handle numeric fields from startupInfo to prevent NaN
+    const teamSize = startupInfo.teamSize ? parseInt(startupInfo.teamSize) : null;
+    const foundedYear = startupInfo.founded ? parseInt(startupInfo.founded) : null;
+    const revenue = startupInfo.revenue ? parseInt(startupInfo.revenue) : null;
+
+    if (teamSize !== null && (isNaN(teamSize) || teamSize < 0)) {
+      alert('Team Size must be a valid non-negative number');
+      return;
+    }
+
+    if (foundedYear !== null && (isNaN(foundedYear) || foundedYear < 1900 || foundedYear > new Date().getFullYear())) {
+      alert('Founded Year must be a valid year');
+      return;
+    }
+
+    if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
+      alert('Revenue must be a valid non-negative number');
+      return;
+    }
+
     try {
       const authToken = localStorage.getItem('token') || token;
       console.log('Submitting pitch with token:', authToken ? 'Present' : 'Missing');
@@ -121,7 +225,7 @@ export default function EntrepreneurDashboard() {
         throw new Error('No token found');
       }
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      
+
       let pitchDocUrl = null;
       let pitchVideoUrl = null;
 
@@ -132,10 +236,11 @@ export default function EntrepreneurDashboard() {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${authToken}` },
           body: formData,
+          credentials: 'include',
         });
         if (!docResponse.ok) {
-          const errorText = await docResponse.text();
-          throw new Error(`Failed to upload pitch document: ${errorText}`);
+          const errorData = await docResponse.json();
+          throw new Error(`Failed to upload pitch document: ${errorData.error || 'Unknown error'}`);
         }
         const docResult = await docResponse.json();
         pitchDocUrl = docResult.fileUrl;
@@ -148,10 +253,11 @@ export default function EntrepreneurDashboard() {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${authToken}` },
           body: formData,
+          credentials: 'include',
         });
         if (!videoResponse.ok) {
-          const errorText = await videoResponse.text();
-          throw new Error(`Failed to upload pitch video: ${errorText}`);
+          const errorData = await videoResponse.json();
+          throw new Error(`Failed to upload pitch video: ${errorData.error || 'Unknown error'}`);
         }
         const videoResult = await videoResponse.json();
         pitchVideoUrl = videoResult.fileUrl;
@@ -161,8 +267,9 @@ export default function EntrepreneurDashboard() {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: newPitch.name,
           description: newPitch.description,
@@ -170,13 +277,13 @@ export default function EntrepreneurDashboard() {
           equityOffered,
           pitchDocUrl,
           pitchVideoUrl,
-          industry: startupInfo.industry,
-          businessModel: startupInfo.businessModel,
-          teamSize: startupInfo.teamSize,
-          foundedYear: startupInfo.founded,
-          location: startupInfo.location,
-          revenue: startupInfo.revenue,
-        })
+          industry: startupInfo.industry || null,
+          businessModel: startupInfo.businessModel || null,
+          teamSize,
+          foundedYear,
+          location: startupInfo.location || null,
+          revenue,
+        }),
       });
 
       if (response.ok) {
@@ -193,20 +300,21 @@ export default function EntrepreneurDashboard() {
           pitchVideo: null,
         });
       } else {
-        const errorText = await response.text();
-        console.error('Failed to create pitch:', response.status, errorText);
-        alert(`Failed to create pitch: ${errorText}`);
+        const errorData = await response.json();
+        console.error('Failed to create pitch:', response.status, errorData);
+        alert(`Failed to create pitch: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating pitch:', error.message);
       alert(`Error: ${error.message}`);
-      if (error.message.includes('No token found')) {
+      if (error.message.includes('No token found') || error.message.includes('401')) {
+        localStorage.removeItem('token');
         router.push('/auth');
       }
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
+  if (!isClient || loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
 
   return (
     <>
@@ -234,6 +342,80 @@ export default function EntrepreneurDashboard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Update Startup Information */}
+        <div className="bg-[#252525] p-4 sm:p-6 rounded-lg border border-[#3A3A3A]">
+          <h2 className="text-lg font-semibold mb-4 text-white">Update Startup Information</h2>
+          <form onSubmit={handleStartupInfoSubmit} className="space-y-4">
+            <InputField
+              label="Founded Year"
+              name="founded"
+              value={startupInfo.founded}
+              onChange={handleStartupInfoChange}
+              type="number"
+              placeholder="e.g., 2020"
+            />
+            <InputField
+              label="Team Size"
+              name="teamSize"
+              value={startupInfo.teamSize}
+              onChange={handleStartupInfoChange}
+              type="number"
+              placeholder="e.g., 5"
+            />
+            <InputField
+              label="Industry"
+              name="industry"
+              value={startupInfo.industry}
+              onChange={handleStartupInfoChange}
+              placeholder="e.g., Technology"
+            />
+            <InputField
+              label="Location"
+              name="location"
+              value={startupInfo.location}
+              onChange={handleStartupInfoChange}
+              placeholder="e.g., San Francisco, CA"
+            />
+            <InputField
+              label="Business Model"
+              name="businessModel"
+              value={startupInfo.businessModel}
+              onChange={handleStartupInfoChange}
+              placeholder="e.g., SaaS"
+            />
+            <InputField
+              label="Revenue"
+              name="revenue"
+              value={startupInfo.revenue}
+              onChange={handleStartupInfoChange}
+              type="number"
+              placeholder="e.g., 10000"
+            />
+            <div className="flex flex-wrap gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setStartupInfo({
+                  founded: '',
+                  teamSize: '',
+                  industry: '',
+                  location: '',
+                  businessModel: '',
+                  revenue: ''
+                })}
+                className="w-full sm:w-auto inline-flex justify-center py-2 px-6 border border-[#3A3A3A] text-sm font-medium rounded-md text-[#F0F0F0] bg-[#252525] hover:bg-[#2A2A2A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D0140F]"
+              >
+                Reset Form
+              </button>
+              <button
+                type="submit"
+                className="w-full sm:w-auto inline-flex justify-center py-2 px-6 border border-transparent text-sm font-medium rounded-md text-white bg-[#D0140F] hover:bg-[#B0100D] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D0140F]"
+              >
+                Update Startup Info
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Pitch Summary */}
@@ -362,7 +544,7 @@ export default function EntrepreneurDashboard() {
   );
 }
 
-function InputField({ label, name, value, onChange, suffix, type = 'text' }) {
+function InputField({ label, name, value, onChange, suffix, type = 'text', placeholder }) {
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-[#AAAAAA] mb-1">{label}</label>
@@ -374,7 +556,7 @@ function InputField({ label, name, value, onChange, suffix, type = 'text' }) {
           value={value}
           onChange={onChange}
           className="block w-full p-2 pr-10 bg-[#1A1A1A] border border-[#3A3A3A] text-[#F0F0F0] rounded-md focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-          placeholder={`Enter ${label}`}
+          placeholder={placeholder || `Enter ${label}`}
         />
         {suffix && (
           <span className="absolute inset-y-0 right-3 flex items-center text-[#AAAAAA]">{suffix}</span>
@@ -384,7 +566,7 @@ function InputField({ label, name, value, onChange, suffix, type = 'text' }) {
   );
 }
 
-function TextArea({ label, name, value, onChange }) {
+function TextArea({ label, name, value, onChange, placeholder }) {
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-[#AAAAAA] mb-1">{label}</label>
@@ -395,7 +577,7 @@ function TextArea({ label, name, value, onChange }) {
         value={value}
         onChange={onChange}
         className="block w-full p-2 bg-[#1A1A1A] border border-[#3A3A3A] text-[#F0F0F0] rounded-md focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-        placeholder={`Enter ${label}`}
+        placeholder={placeholder || `Enter ${label}`}
       />
     </div>
   );

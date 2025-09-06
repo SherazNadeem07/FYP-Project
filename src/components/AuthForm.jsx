@@ -1,16 +1,22 @@
-
-"use client";
+'use client';
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { loginSuccess } from '../Redux/Slices/AuthSlice';
+import { loginUser } from '../Redux/Slices/AuthSlice';
 import { useRouter } from 'next/navigation';
-import { setCookie } from 'cookies-next';
 
 const AuthForm = ({ mode, role, toggleMode }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    fullName: '',
+    title: '',
+    bio: '',
+    phone: '',
+    website: '',
+    linkedin: '',
+    twitter: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,23 +25,28 @@ const AuthForm = ({ mode, role, toggleMode }) => {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     if (mode === 'signup') {
-      if (!fullName.trim()) {
+      if (!formData.fullName.trim()) {
         setError('Full name is required.');
         setLoading(false);
         return;
       }
-      if (password.length < 8) {
+      if (formData.password.length < 8) {
         setError('Password must be at least 8 characters long.');
         setLoading(false);
         return;
       }
-      if (password !== confirmPassword) {
+      if (formData.password !== formData.confirmPassword) {
         setError('Passwords do not match.');
         setLoading(false);
         return;
@@ -44,73 +55,63 @@ const AuthForm = ({ mode, role, toggleMode }) => {
 
     try {
       if (mode === 'login') {
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
+        const result = await dispatch(loginUser({
+          email: formData.email,
+          password: formData.password,
+        })).unwrap();
+        console.log('loginUser result:', result);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Login failed');
+        if (!result.user.role || !['entrepreneur', 'investor'].includes(result.user.role)) {
+          console.error('Invalid or missing role:', result.user.role);
+          throw new Error('Invalid user role. Please contact support.');
         }
 
-        // Store token in localStorage
-        console.log('Storing token in localStorage:', data.token);
-        localStorage.setItem('token', data.token);
-
-        // Store token in cookies for middleware
-        setCookie('token', data.token, { maxAge: 7 * 24 * 60 * 60 }); // 7 days
-
-        // Dispatch login success to Redux
-        dispatch(
-          loginSuccess({
-            user: {
-              id: data.user.id,
-              email: data.user.email,
-              role: data.user.role,
-              fullName: data.user.full_name,
-            },
-            token: data.token,
-          })
-        );
-
-        // Redirect based on role
         router.push(
-          data.user.role === 'entrepreneur'
+          result.user.role === 'entrepreneur'
             ? '/dashboard/entrepreneur'
             : '/dashboard/investor'
         );
       } else {
+        console.log('Sending signup request to:', `${API_BASE_URL}/api/auth/signup`);
         const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email,
-            password,
+            email: formData.email,
+            password: formData.password,
             role,
-            fullName,
+            fullName: formData.fullName,
+            title: formData.title,
+            bio: formData.bio,
+            phone: formData.phone,
+            website: formData.website,
+            linkedin: formData.linkedin,
+            twitter: formData.twitter,
           }),
+          credentials: 'include',
         });
 
         const data = await response.json();
+        console.log('Signup API response:', { status: response.status, data });
 
         if (!response.ok) {
           throw new Error(data.error || 'Signup failed');
         }
 
-        // Show success message and switch to login mode
         alert('Account created successfully! Please login.');
         toggleMode();
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setFullName('');
+        setFormData({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          fullName: '',
+          title: '',
+          bio: '',
+          phone: '',
+          website: '',
+          linkedin: '',
+          twitter: '',
+        });
       }
     } catch (err) {
       console.error('Auth error:', err.message);
@@ -127,25 +128,89 @@ const AuthForm = ({ mode, role, toggleMode }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {mode === 'signup' && (
-        <div>
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-          />
-        </div>
+        <>
+          <div>
+            <input
+              type="text"
+              name="fullName"
+              placeholder="Full Name *"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              name="title"
+              placeholder="Title (e.g., Serial Entrepreneur)"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.title}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <textarea
+              name="bio"
+              placeholder="Bio"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.bio}
+              onChange={handleInputChange}
+              rows={3}
+            />
+          </div>
+          <div>
+            <input
+              type="tel"
+              name="phone"
+              placeholder="Phone (e.g., +1 (555) 123-4567)"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.phone}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <input
+              type="url"
+              name="website"
+              placeholder="Website (e.g., https://yourwebsite.com)"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.website}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <input
+              type="url"
+              name="linkedin"
+              placeholder="LinkedIn (e.g., https://linkedin.com/in/yourprofile)"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.linkedin}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <input
+              type="url"
+              name="twitter"
+              placeholder="Twitter (e.g., https://twitter.com/yourhandle)"
+              className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
+              value={formData.twitter}
+              onChange={handleInputChange}
+            />
+          </div>
+        </>
       )}
 
       <div>
         <input
           type="email"
-          placeholder="Email"
+          name="email"
+          placeholder="Email *"
           className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={formData.email}
+          onChange={handleInputChange}
           required
         />
       </div>
@@ -153,10 +218,11 @@ const AuthForm = ({ mode, role, toggleMode }) => {
       <div>
         <input
           type="password"
-          placeholder="Password"
+          name="password"
+          placeholder="Password *"
           className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={formData.password}
+          onChange={handleInputChange}
           required
         />
       </div>
@@ -177,10 +243,11 @@ const AuthForm = ({ mode, role, toggleMode }) => {
         <div>
           <input
             type="password"
-            placeholder="Confirm Password"
+            name="confirmPassword"
+            placeholder="Confirm Password *"
             className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            value={formData.confirmPassword}
+            onChange={handleInputChange}
             required
           />
         </div>
