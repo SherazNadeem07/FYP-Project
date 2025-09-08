@@ -34,12 +34,11 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[80%] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
           <div className="flex items-center cursor-pointer" onClick={() => handleNavigate('/')}>
-            <FontAwesomeIcon icon={faRocket} className="text-[#D0140F] text-2xl mr-2" />
-            <span className="text-xl font-bold text-gray-700 whitespace-nowrap">InvestHub</span>
+            <img src="/investhub.png" alt="" width={80} height={80}/>
           </div>
 
           {/* Desktop Menu */}
