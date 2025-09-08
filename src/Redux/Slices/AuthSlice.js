@@ -1,5 +1,6 @@
+// AuthSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { setCookie, removeCookie } from 'cookies-next';
+import { setCookie, deleteCookie } from 'cookies-next';
 
 export const loginUser = createAsyncThunk('auth/loginUser', async ({ email, password }, { rejectWithValue }) => {
   try {
@@ -16,7 +17,7 @@ export const loginUser = createAsyncThunk('auth/loginUser', async ({ email, pass
     setCookie('token', data.token, {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     });
     return {
@@ -57,7 +58,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.status = 'idle';
       state.error = null;
-      removeCookie('token');
+      deleteCookie('token');
       console.log('AuthSlice: Cleared token from cookies');
     },
   },

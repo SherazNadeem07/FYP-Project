@@ -1,16 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {
-  FaChartLine,
-  FaLightbulb,
-  FaHandshake,
-  FaMoneyBillWave,
-  FaGlobe,
-  FaUsers,
-  FaTrophy,
-  FaRocket
-} from 'react-icons/fa';
+import { FaLightbulb, FaHandshake, FaMoneyBillWave, FaGlobe, FaUsers } from "react-icons/fa";
+import { FaRocket, FaTrophy } from "react-icons/fa6";
 import { motion } from 'framer-motion';
 
 export const WhyChooseUs = () => {
@@ -80,7 +72,7 @@ export const WhyChooseUs = () => {
       icon: <FaTrophy className="text-white text-xl" />,
       color: 'blue',
       description:
-        'SharkIdea evolves with you. Today you fund a pitch — tomorrow you co-lead a pre-seed round. Let’s scale ideas together.',
+        'InvestHubevolves with you. Today you fund a pitch — tomorrow you co-lead a pre-seed round. Let’s scale ideas together.',
     },
   ];
 
@@ -90,12 +82,12 @@ export const WhyChooseUs = () => {
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-wide">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600">
-              Why Choose SharkIdea
+              Why Choose invest-hub
             </span>
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-full mx-auto"></div>
           <p className="mt-6 text-lg text-gray-700 max-w-3xl mx-auto tracking-wide">
-            SharkIdea isn't just a final year project — it's a next-gen platform built to connect bold ideas with visionary investors.
+            InvestHubisn't just a final year project — it's a next-gen platform built to connect bold ideas with visionary investors.
           </p>
         </div>
 

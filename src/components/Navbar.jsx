@@ -39,7 +39,7 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center cursor-pointer" onClick={() => handleNavigate('/')}>
             <FontAwesomeIcon icon={faRocket} className="text-[#D0140F] text-2xl mr-2" />
-            <span className="text-xl font-bold text-gray-700 whitespace-nowrap">SharkIdea</span>
+            <span className="text-xl font-bold text-gray-700 whitespace-nowrap">InvestHub</span>
           </div>
 
           {/* Desktop Menu */}

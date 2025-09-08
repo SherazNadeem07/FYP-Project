@@ -4,34 +4,40 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { useEffect, useState } from 'react';
 import { logout } from '../Redux/Slices/AuthSlice';
+import { getCookie } from 'cookies-next';
 import { FiHome, FiPieChart, FiUser, FiFileText, FiLogOut, FiMessageSquare, FiX } from 'react-icons/fi';
 
 export default function EntrepreneurSidebar({ isOpen = false, setIsOpen = () => {} }) {
   const [isClient, setIsClient] = useState(false);
+  const [stats, setStats] = useState({ totalPitches: 0, fundedPitches: 0, totalRaised: 0 });
+  const [error, setError] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const [stats, setStats] = useState({ totalPitches: 0, fundedPitches: 0, totalRaised: 0 });
-  const [error, setError] = useState(null);
+  const { user, token } = useSelector((state) => state.auth);
   const notifications = 2;
 
   useEffect(() => {
     setIsClient(true);
     console.log('User from Redux:', user);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('Token from Redux:', token ? 'Present' : 'Missing');
 
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem('token');
-        console.log('Token for stats request:', token ? 'Present' : 'Missing');
-        if (!token) throw new Error('No authentication token found');
+        const authToken = token || getCookie('token');
+        console.log('Token for stats request:', authToken ? 'Present' : 'Missing');
+        if (!authToken) {
+          throw new Error('No authentication token found');
+        }
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        console.log('API_BASE_URL:', API_BASE_URL);
 
         const response = await fetch(`${API_BASE_URL}/api/entrepreneur/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${authToken}` },
           credentials: 'include',
         });
+
         const data = await response.json();
         console.log('Stats API response:', { status: response.status, data });
 
@@ -40,27 +46,38 @@ export default function EntrepreneurSidebar({ isOpen = false, setIsOpen = () => 
         }
 
         setStats(data);
+        setError(null);
       } catch (err) {
         console.error('Stats fetch error:', err.message);
         setError(err.message);
-        if (err.message.includes('No authentication token found')) {
+        if (err.message.includes('No token found') || err.message.includes('401')) {
+          dispatch(logout());
           router.push('/auth');
         }
       }
     };
 
-    if (user && user.role === 'entrepreneur') {
+    if (user && user.role === 'entrepreneur' && token) {
       fetchStats();
     } else {
-      console.warn('User not loaded or not entrepreneur:', user);
+      console.warn('User or token not loaded or not entrepreneur:', { user, token });
+      // Avoid immediate redirect; wait for persisted state
+      if (isClient && !token && !getCookie('token')) {
+        router.push('/auth');
+      }
     }
-  }, [user, router]);
+  }, [user, token, router, dispatch, isClient]);
 
   const handleLogout = () => {
-    dispatch(logout());
-    router.replace('/auth');
-    window.history.pushState(null, '', '/auth');
-    window.addEventListener('popstate', () => router.replace('/auth'), { once: true });
+    try {
+      dispatch(logout());
+      router.replace('/auth');
+      window.history.pushState(null, '', '/auth');
+      window.addEventListener('popstate', () => router.replace('/auth'), { once: true });
+    } catch (error) {
+      console.error('Logout error:', error.message);
+      setError('Failed to log out. Please try again.');
+    }
   };
 
   const getInitials = (name) => {
@@ -95,8 +112,8 @@ export default function EntrepreneurSidebar({ isOpen = false, setIsOpen = () => 
         <div className="p-6 border-b border-[#3F3F3F]">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 rounded-full bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
-              {user?.profile_image_url ? (
-                <img src={user.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
+              {user?.profileImage ? (
+                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-lg font-bold text-[#D0140F]">
                   {getInitials(user?.fullName)}

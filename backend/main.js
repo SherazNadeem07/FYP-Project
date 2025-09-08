@@ -8,6 +8,7 @@ const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +18,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${PORT
 if (!JWT_SECRET) {
   console.error('❌ JWT_SECRET is not defined in .env');
   process.exit(1);
+}
+
+// Ensure Uploads directory exists
+const uploadDir = path.join(__dirname, 'Uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('✅ Created Uploads directory');
 }
 
 // Database connection
@@ -48,7 +56,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 // Configure Multer for file uploads
 const storage = multer.diskStorage({
-  destination: './Uploads/',
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   }
@@ -277,6 +287,7 @@ app.post('/api/upload/profile-image', authenticateToken, (req, res) => {
       return res.status(400).json({ error: err.message });
     }
     if (!req.file) {
+      console.error('No profile image file provided');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
@@ -380,11 +391,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM || 'sherazkhan48477@gmail.com',
       to: user.email,
-      subject: 'Password Reset Request - Shark Tank Idea Platform',
+      subject: 'Password Reset Request - InvestHub Idea Platform',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #D0140F; margin: 0;">Shark Tank Idea Platform</h2>
+            <h2 style="color: #D0140F; margin: 0;">InvestHub Idea Platform</h2>
             <p style="color: #666; margin: 5px 0;">Reset Your Password</p>
           </div>
           <p>Hello ${user.full_name},</p>
@@ -406,7 +417,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
           <p style="color: #999; font-size: 12px; text-align: center;">
             This is an automated message. Do not reply.<br>
-            © 2025 Shark Tank Idea Platform. All rights reserved.
+            © 2025 InvestHub Idea Platform. All rights reserved.
           </p>
         </div>
       `
@@ -485,7 +496,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// Get all pitches
+// Get all pitches for entrepreneurs
 app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'entrepreneur') {
@@ -500,7 +511,8 @@ app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
         industry, business_model AS "businessModel", team_size AS "teamSize",
         founded_year AS "foundedYear", location, revenue,
         created_at AS "dateSubmitted",
-        (SELECT COUNT(*) FROM investments WHERE pitch_id = pitches.id) AS "investorCount"
+        (SELECT COUNT(*) FROM investments WHERE pitch_id = pitches.id) AS "investorCount",
+        COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = pitches.id AND status = 'Accepted'), 0) AS "totalInvested"
       FROM pitches 
       WHERE user_id = $1
       ORDER BY created_at DESC`,
@@ -514,7 +526,7 @@ app.get('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
   }
 });
 
-// Get single pitch
+// Get single pitch for entrepreneurs
 app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'entrepreneur') {
@@ -528,7 +540,7 @@ app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
         u.full_name AS "userName",
         u.email AS "userEmail",
         (SELECT COUNT(*) FROM investments WHERE pitch_id = p.id) AS "investorCount",
-        COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = p.id), 0) AS "totalInvested"
+        COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = p.id AND status = 'Accepted'), 0) AS "totalInvested"
       FROM pitches p 
       LEFT JOIN users u ON p.user_id = u.id
       WHERE p.id = $1 AND p.user_id = $2`,
@@ -536,12 +548,48 @@ app.get('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Pitch not found' });
+      return res.status(404).json({ error: 'Pitch not found or unauthorized' });
     }
 
     res.json({ pitch: result.rows[0] });
   } catch (err) {
     console.error('Get pitch error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get investments for a specific pitch
+app.get('/api/entrepreneur/investments/:pitchId', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { pitchId } = req.params;
+    const checkResult = await pool.query(
+      'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
+      [pitchId, req.user.id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found or unauthorized' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        i.id, i.amount, i.status, i.created_at AS "dateInvested",
+        u.full_name AS "investorName",
+        u.email AS "investorEmail"
+      FROM investments i
+      JOIN users u ON i.investor_id = u.id
+      WHERE i.pitch_id = $1
+      ORDER BY i.created_at DESC`,
+      [pitchId]
+    );
+
+    res.json({ investments: result.rows });
+  } catch (err) {
+    console.error('Get investments error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -565,7 +613,8 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
       teamSize,
       foundedYear,
       location,
-      revenue
+      revenue,
+      status = 'Live'
     } = req.body;
 
     if (!name || !description || fundingGoal == null || equityOffered == null) {
@@ -586,45 +635,58 @@ app.post('/api/entrepreneur/pitches', authenticateToken, async (req, res) => {
     if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
       return res.status(400).json({ error: 'Revenue must be a non-negative integer or null' });
     }
+    if (!['Pending', 'Live', 'Funded', 'Rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be Pending, Live, Funded, or Rejected' });
+    }
 
     const result = await pool.query(
       `INSERT INTO pitches 
         (user_id, name, description, funding_goal, equity_offered, 
          pitch_doc_url, pitch_video_url, industry, business_model, 
          team_size, founded_year, location, revenue, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING 
          id, name, description, status, 
          funding_goal AS "fundingGoal", equity_offered AS "equityOffered",
          pitch_doc_url AS "pitchDocUrl", pitch_video_url AS "pitchVideoUrl",
          industry, business_model AS "businessModel", team_size AS "teamSize",
          founded_year AS "foundedYear", location, revenue,
-         created_at AS "dateSubmitted"`,
+         created_at AS "dateSubmitted",
+         (SELECT COUNT(*) FROM investments WHERE pitch_id = pitches.id) AS "investorCount",
+         COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = pitches.id AND status = 'Accepted'), 0) AS "totalInvested"`,
       [
         req.user.id,
         name,
         description,
-        fundingGoal, // Already validated as a number
-        equityOffered, // Already validated as a number
+        parseFloat(fundingGoal),
+        parseFloat(equityOffered),
         pitchDocUrl || null,
         pitchVideoUrl || null,
         industry || null,
         businessModel || null,
-        teamSize, // Either a valid integer or null
-        foundedYear, // Either a valid integer or null
+        teamSize,
+        foundedYear,
         location || null,
-        revenue // Either a valid integer or null
+        revenue,
+        status
       ]
     );
 
+    console.log(`Pitch created: ${name} by user ${req.user.id} with status ${status}`);
     res.status(201).json({
       message: 'Pitch created successfully',
       pitch: result.rows[0]
     });
   } catch (err) {
     console.error('Create pitch error:', err.message);
+    if (err.message.includes('invalid input syntax for type numeric')) {
+      return res.status(400).json({ error: 'Invalid numeric input for funding goal or equity offered' });
+    }
     if (err.message.includes('invalid input syntax for type integer')) {
       return res.status(400).json({ error: 'Invalid numeric input for team size, founded year, or revenue' });
+    }
+    if (err.message.includes('unique constraint')) {
+      return res.status(400).json({ error: 'A pitch with this name already exists for this user' });
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -650,7 +712,8 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
       teamSize,
       foundedYear,
       location,
-      revenue
+      revenue,
+      status
     } = req.body;
 
     if (!name || !description || fundingGoal == null || equityOffered == null) {
@@ -671,14 +734,22 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
     if (revenue !== null && (isNaN(revenue) || revenue < 0)) {
       return res.status(400).json({ error: 'Revenue must be a non-negative integer or null' });
     }
+    if (status && !['Pending', 'Live', 'Funded', 'Rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be Pending, Live, Funded, or Rejected' });
+    }
 
     const checkResult = await pool.query(
-      'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
+      'SELECT id, status FROM pitches WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Pitch not found' });
+      return res.status(404).json({ error: 'Pitch not found or unauthorized' });
+    }
+
+    const currentStatus = checkResult.rows[0].status;
+    if (currentStatus === 'Live' || currentStatus === 'Funded') {
+      return res.status(403).json({ error: 'Cannot edit Live or Funded pitches' });
     }
 
     const result = await pool.query(
@@ -687,20 +758,22 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
          name = $1, description = $2, funding_goal = $3, equity_offered = $4,
          pitch_doc_url = $5, pitch_video_url = $6, industry = $7, business_model = $8,
          team_size = $9, founded_year = $10, location = $11, revenue = $12,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $13 AND user_id = $14
+         status = $13, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $14 AND user_id = $15
        RETURNING 
          id, name, description, status, 
          funding_goal AS "fundingGoal", equity_offered AS "equityOffered",
          pitch_doc_url AS "pitchDocUrl", pitch_video_url AS "pitchVideoUrl",
          industry, business_model AS "businessModel", team_size AS "teamSize",
          founded_year AS "foundedYear", location, revenue,
-         created_at AS "dateSubmitted"`,
+         created_at AS "dateSubmitted",
+         (SELECT COUNT(*) FROM investments WHERE pitch_id = pitches.id) AS "investorCount",
+         COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = pitches.id AND status = 'Accepted'), 0) AS "totalInvested"`,
       [
         name,
         description,
-        fundingGoal,
-        equityOffered,
+        parseFloat(fundingGoal),
+        parseFloat(equityOffered),
         pitchDocUrl || null,
         pitchVideoUrl || null,
         industry || null,
@@ -709,26 +782,34 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
         foundedYear,
         location || null,
         revenue,
+        status || currentStatus,
         id,
         req.user.id
       ]
     );
 
+    console.log(`Pitch updated: ${id} by user ${req.user.id}`);
     res.json({
       message: 'Pitch updated successfully',
       pitch: result.rows[0]
     });
   } catch (err) {
     console.error('Update pitch error:', err.message);
+    if (err.message.includes('invalid input syntax for type numeric')) {
+      return res.status(400).json({ error: 'Invalid numeric input for funding goal or equity offered' });
+    }
     if (err.message.includes('invalid input syntax for type integer')) {
       return res.status(400).json({ error: 'Invalid numeric input for team size, founded year, or revenue' });
+    }
+    if (err.message.includes('unique constraint')) {
+      return res.status(400).json({ error: 'A pitch with this name already exists for this user' });
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Delete pitch
-app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
+app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'entrepreneur') {
       return res.status(403).json({ error: 'Unauthorized' });
@@ -736,12 +817,17 @@ app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) 
 
     const { id } = req.params;
     const checkResult = await pool.query(
-      'SELECT id FROM pitches WHERE id = $1 AND user_id = $2',
+      'SELECT id, status FROM pitches WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Pitch not found' });
+      return res.status(404).json({ error: 'Pitch not found or unauthorized' });
+    }
+
+    const currentStatus = checkResult.rows[0].status;
+    if (currentStatus === 'Live' || currentStatus === 'Funded') {
+      return res.status(403).json({ error: 'Cannot delete Live or Funded pitches' });
     }
 
     await pool.query(
@@ -749,6 +835,7 @@ app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) 
       [id, req.user.id]
     );
 
+    console.log(`Pitch deleted: ${id} by user ${req.user.id}`);
     res.json({ message: 'Pitch deleted successfully' });
   } catch (err) {
     console.error('Delete pitch error:', err.stack);
@@ -837,6 +924,7 @@ app.put('/api/entrepreneur/startup-info', authenticateToken, async (req, res) =>
       );
     }
 
+    console.log(`Startup info updated for user ${req.user.id}`);
     res.json({
       message: 'Startup information updated successfully',
       startupInfo: { founded, teamSize, industry, location, businessModel, revenue }
@@ -858,6 +946,7 @@ app.post('/api/upload/pitch-file', authenticateToken, (req, res) => {
       return res.status(400).json({ error: err.message });
     }
     if (!req.file) {
+      console.error('No pitch file provided');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
@@ -889,10 +978,258 @@ app.get('/api/entrepreneur/stats', authenticateToken, async (req, res) => {
     res.json({
       totalPitches: parseInt(stats.rows[0].total_pitches, 10),
       fundedPitches: parseInt(stats.rows[0].funded_pitches, 10),
-      totalRaised: parseInt(stats.rows[0].total_raised, 10)
+      totalRaised: parseFloat(stats.rows[0].total_raised)
     });
   } catch (err) {
     console.error('Get stats error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all live pitches for investors
+app.get('/api/investor/pitches', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        p.id, p.name AS title, p.description, p.funding_goal AS "fundingGoal", 
+        p.equity_offered AS "equityOffered", p.status, 
+        u.full_name AS entrepreneur,
+        p.pitch_doc_url AS "pitchDocUrl", p.pitch_video_url AS "pitchVideoUrl",
+        p.industry, p.business_model AS "businessModel", p.team_size AS "teamSize",
+        p.founded_year AS "foundedYear", p.location, p.revenue,
+        p.created_at AS "dateSubmitted",
+        (SELECT COUNT(*) FROM investments WHERE pitch_id = p.id) AS "investorCount",
+        COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = p.id AND status = 'Accepted'), 0) AS "totalInvested"
+      FROM pitches p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.status = 'Live'
+      ORDER BY p.created_at DESC`
+    );
+
+    console.log(`Fetched ${result.rows.length} live pitches for investor ${req.user.id}`);
+    res.json({ pitches: result.rows });
+  } catch (err) {
+    console.error('Get investor pitches error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Investor makes an investment
+app.post('/api/investor/invest', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized: Only investors can invest' });
+    }
+
+    const { pitchId, amount, message } = req.body;
+    console.log('Investment request:', { pitchId, amount, message });
+
+    if (!pitchId || !amount) {
+      return res.status(400).json({ error: 'Pitch ID and amount are required' });
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Investment amount must be a positive number' });
+    }
+
+    // Verify pitch exists and is live
+    const pitchResult = await pool.query(
+      `SELECT id, status, funding_goal, 
+              COALESCE((SELECT SUM(amount) FROM investments WHERE pitch_id = $1 AND status = 'Accepted'), 0)::NUMERIC AS total_invested 
+       FROM pitches 
+       WHERE id = $1 AND status = 'Live'`,
+      [pitchId]
+    );
+
+    if (pitchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found or not live' });
+    }
+
+    const pitch = pitchResult.rows[0];
+    const newTotal = parseFloat(pitch.total_invested) + parsedAmount;
+
+    if (newTotal > parseFloat(pitch.funding_goal)) {
+      return res.status(400).json({ error: 'Investment exceeds funding goal' });
+    }
+
+    // Insert investment
+    try {
+      const result = await pool.query(
+        `INSERT INTO investments (pitch_id, investor_id, amount, status)
+         VALUES ($1, $2, $3, 'Accepted')
+         RETURNING id, pitch_id AS "pitchId", investor_id AS "investorId", amount, status, created_at AS "dateInvested"`,
+        [pitchId, req.user.id, parsedAmount]
+      );
+
+      // Update pitch status to Funded if goal is reached
+      if (newTotal >= parseFloat(pitch.funding_goal)) {
+        await pool.query(
+          'UPDATE pitches SET status = \'Funded\' WHERE id = $1',
+          [pitchId]
+        );
+        console.log(`Pitch ${pitchId} marked as Funded`);
+      }
+
+      // Send notification to entrepreneur
+      const entrepreneurResult = await pool.query(
+        'SELECT u.email, u.full_name FROM users u JOIN pitches p ON u.id = p.user_id WHERE p.id = $1',
+        [pitchId]
+      );
+
+      if (entrepreneurResult.rows.length > 0) {
+        const entrepreneur = entrepreneurResult.rows[0];
+        const mailOptions = {
+          from: process.env.EMAIL_FROM || 'sherazkhan48477@gmail.com',
+          to: entrepreneur.email,
+          subject: 'New Investment in Your Pitch - InvestHub Idea Platform',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #D0140F; margin: 0;">InvestHub Idea Platform</h2>
+                <p style="color: #666; margin: 5px 0;">New Investment Notification</p>
+              </div>
+              <p>Hello ${entrepreneur.full_name},</p>
+              <p>An investor has made an investment of $${parsedAmount.toLocaleString()} in your pitch, which has been accepted.</p>
+              <p>Please review the investment details in your dashboard.</p>
+              ${message ? `<p><strong>Investor Message:</strong> ${message}</p>` : ''}
+              <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                This is an automated message. Do not reply.<br>
+                © 2025 InvestHub Idea Platform. All rights reserved.
+              </p>
+            </div>
+          `
+        };
+
+        try {
+          await emailTransporter.sendMail(mailOptions);
+          console.log(`✅ Investment notification sent to: ${entrepreneur.email}`);
+        } catch (emailError) {
+          console.error('❌ Failed to send investment notification:', emailError.message);
+        }
+      }
+
+      console.log(`Investment created: $${parsedAmount} in pitch ${pitchId} by investor ${req.user.id}`);
+      res.status(201).json({
+        message: 'Investment submitted successfully',
+        investment: result.rows[0]
+      });
+    } catch (dbError) {
+      console.error('Database insertion error:', dbError.message);
+      if (dbError.message.includes('violates check constraint')) {
+        return res.status(400).json({ error: 'Invalid investment status' });
+      }
+      return res.status(500).json({ error: `Database error: ${dbError.message}` });
+    }
+  } catch (err) {
+    console.error('Invest error:', err.message, err.stack);
+    return res.status(500).json({ error: `Internal server error: ${err.message}` });
+  }
+});
+
+// Investor rejects their own investment
+app.put('/api/investor/investments/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+
+    // Verify investment exists and belongs to the investor
+    const investmentResult = await pool.query(
+      'SELECT i.id, i.pitch_id, i.amount, i.status, p.user_id FROM investments i JOIN pitches p ON i.pitch_id = p.id WHERE i.id = $1 AND i.investor_id = $2',
+      [id, req.user.id]
+    );
+
+    if (investmentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Investment not found or unauthorized' });
+    }
+
+    const investment = investmentResult.rows[0];
+    if (investment.status === 'Rejected') {
+      return res.status(400).json({ error: 'Investment is already rejected' });
+    }
+
+    // Update investment status to Rejected
+    await pool.query(
+      'UPDATE investments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['Rejected', id]
+    );
+
+    // Send notification to entrepreneur
+    const entrepreneurResult = await pool.query(
+      'SELECT u.email, u.full_name FROM users u WHERE u.id = $1',
+      [investment.user_id]
+    );
+
+    if (entrepreneurResult.rows.length > 0) {
+      const entrepreneur = entrepreneurResult.rows[0];
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || 'sherazkhan48477@gmail.com',
+        to: entrepreneur.email,
+        subject: 'Investment Rejected - InvestHub Idea Platform',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #D0140F; margin: 0;">InvestHub Idea Platform</h2>
+              <p style="color: #666; margin: 5px 0;">Investment Rejection Notification</p>
+            </div>
+            <p>Hello ${entrepreneur.full_name},</p>
+            <p>An investor has rejected their investment of $${investment.amount.toLocaleString()} in your pitch.</p>
+            <p>Please review the updated investment details in your dashboard.</p>
+            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              This is an automated message. Do not reply.<br>
+              © 2025 InvestHub Idea Platform. All rights reserved.
+            </p>
+          </div>
+        `
+      };
+
+      try {
+        await emailTransporter.sendMail(mailOptions);
+        console.log(`✅ Investment rejection notification sent to: ${entrepreneur.email}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send rejection notification:', emailError.message);
+      }
+    }
+
+    console.log(`Investment ${id} rejected by investor ${req.user.id}`);
+    res.json({ message: 'Investment rejected successfully' });
+  } catch (err) {
+    console.error('Reject investment error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get investor's investments
+app.get('/api/investor/investments', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        i.id, i.amount, i.status, i.created_at AS "dateInvested",
+        p.name AS startup,
+        p.equity_offered AS "equity"
+      FROM investments i
+      JOIN pitches p ON i.pitch_id = p.id
+      WHERE i.investor_id = $1
+      ORDER BY i.created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({ investments: result.rows });
+  } catch (err) {
+    console.error('Get investor investments error:', err.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

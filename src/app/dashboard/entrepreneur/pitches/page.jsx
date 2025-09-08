@@ -1,8 +1,8 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 
 export default function PitchesPage() {
   const [pitches, setPitches] = useState([]);
@@ -12,15 +12,16 @@ export default function PitchesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token') || token;
-    console.log('PitchesPage - Token check - localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing');
-    
+    const storedToken = getCookie('token') || token;
+    console.log('PitchesPage - Token check - Cookie:', getCookie('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing');
+
     if (!storedToken) {
       console.log('No token found, redirecting to login');
-      router.push('/auth');
+      setError('Please log in to view your pitches.');
+      setLoading(false);
       return;
     }
-    
+
     const fetchPitches = async () => {
       try {
         console.log('Fetching pitches with token:', storedToken ? 'Present' : 'Missing');
@@ -29,21 +30,28 @@ export default function PitchesPage() {
           headers: {
             'Authorization': `Bearer ${storedToken}`,
           },
+          credentials: 'include',
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Pitches fetch error:', response.status, errorText);
-          throw new Error(`Failed to fetch pitches: ${errorText}`);
+          const errorData = await response.json();
+          console.error('Pitches fetch error:', response.status, errorData);
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
         setPitches(data.pitches || []);
       } catch (err) {
         console.error('Error fetching pitches:', err.message);
-        setError(err.message || 'Failed to load pitches');
-        if (err.message.includes('No token found') || err.message.includes('Invalid token')) {
-          router.push('/auth');
+        if (err.message.includes('Invalid or expired token') || err.message.includes('401') || err.message.includes('403')) {
+          setError('Your session has expired. Please log in again.');
+          // Optionally clear the invalid token
+          // deleteCookie('token'); // Uncomment if you want to clear the cookie
+          setTimeout(() => {
+            router.push('/auth');
+          }, 2000);
+        } else {
+          setError(err.message || 'Failed to load pitches');
         }
       } finally {
         setLoading(false);
@@ -64,7 +72,15 @@ export default function PitchesPage() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#2C2C2C] text-[#E8E8E8]">
-        <p className="text-red-400">{error}</p>
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => router.push('/auth')}
+            className="inline-flex justify-center py-2 px-6 border border-transparent text-sm font-medium rounded-md text-white bg-[#D0140F] hover:bg-[#B0100D] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D0140F]"
+          >
+            Go to Login
+          </button>
+        </div>
       </div>
     );
   }

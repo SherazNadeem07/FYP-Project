@@ -144,7 +144,7 @@ const AuthForm = ({ mode, role, toggleMode }) => {
             <input
               type="text"
               name="title"
-              placeholder="Title (e.g., Serial Entrepreneur)"
+              placeholder="Title (e.g., Serial Entrepreneur or Investor)"
               className="w-full p-2 rounded-md bg-[#2A2A2A] border border-[#3A3A3A] text-[#F0F0F0] focus:outline-none focus:ring-1 focus:ring-[#D0140F]"
               value={formData.title}
               onChange={handleInputChange}

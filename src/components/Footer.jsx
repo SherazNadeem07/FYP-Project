@@ -24,7 +24,7 @@ return (
           </div>
         </div>
         <div className=" mt-8 pt-8 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} SharkIdea. All rights reserved.
+          © {new Date().getFullYear()} InvestHub. All rights reserved.
         </div>
       </div>
     </footer>

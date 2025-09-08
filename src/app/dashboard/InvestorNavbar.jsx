@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSelector, useDispatch } from 'react-redux';
+import { useState, useEffect } from 'react';
 import {
   FiHome,
   FiPieChart,
@@ -10,21 +12,94 @@ import {
   FiLogOut,
   FiX
 } from 'react-icons/fi';
-import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../Redux/Slices/AuthSlice';
 
-export default function InvestorNavbar({ isOpen = false, setIsOpen = () => {} }) {
+export default function InvestorSidebar({ isOpen = false, setIsOpen = () => {} }) {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const notifications = 2;
+  const { user, token } = useSelector((state) => state.auth);
+  const notifications = 2; // This could be made dynamic via an API call
+  const [stats, setStats] = useState({
+    totalInvestments: 0,
+    totalCommitted: 0,
+    totalEquity: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch investment stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!token || !user) {
+        console.log('No token or user found, skipping fetch');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        console.log('Fetching investments with token:', token);
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_BASE_URL}/api/investor/investments`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch investments`);
+        }
+
+        const { investments } = await response.json();
+        console.log('Fetched investments:', investments);
+        const acceptedInvestments = investments.filter(inv => inv.status === 'Accepted');
+        const totalInvestments = acceptedInvestments.length;
+        const totalCommitted = acceptedInvestments
+          .reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+        const totalEquity = acceptedInvestments
+          .reduce((sum, inv) => sum + parseFloat(inv.equity || 0), 0);
+
+        setStats({
+          totalInvestments,
+          totalCommitted,
+          totalEquity: Number(totalEquity.toFixed(2)),
+        });
+      } catch (error) {
+        console.error('Error fetching investment stats:', error.message);
+        setError(error.message);
+        setStats({
+          totalInvestments: 0,
+          totalCommitted: 0,
+          totalEquity: 0,
+        });
+        if (error.message.includes('Unauthorized') || error.message.includes('401') || error.message.includes('403')) {
+          console.log('Redirecting to auth due to authentication error');
+          dispatch(logout());
+          router.replace('/auth');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+
+    // Listen for investment refresh event
+    const handleRefresh = () => fetchStats();
+    window.addEventListener('refreshInvestments', handleRefresh);
+    return () => window.removeEventListener('refreshInvestments', handleRefresh);
+  }, [token, user, dispatch, router]);
 
   const handleLogout = () => {
     dispatch(logout());
     router.replace('/auth');
     window.history.pushState(null, '', '/auth');
-    window.addEventListener('popstate', () => router.replace('/auth'));
+    window.addEventListener('popstate', () => router.replace('/auth'), { once: true });
   };
 
   const getInitials = (name) => {
@@ -62,14 +137,34 @@ export default function InvestorNavbar({ isOpen = false, setIsOpen = () => {} })
               </span>
             </div>
             <div>
-              <h2 className="font-bold text-[#FFFFFF]">{user?.fullName || 'Investor'}</h2>
-              <p className="text-sm text-[#9ca3af]">Angel Investor</p>
+              <h2 className="font-bold text-[#FFFFFF]">{user?.fullName || 'User'}</h2>
+              <p className="text-sm text-[#9ca3af]">{user?.role || 'Investor'}</p>
             </div>
           </div>
+          {error && (
+            <div className="mt-2 text-sm text-[#D0140F]">
+              Error: {error}
+            </div>
+          )}
           <div className="mt-4 flex justify-between text-sm text-[#B3B3B3]">
-            <div><p className="text-[#9ca3af]">Investments</p><p className="font-semibold text-[#FFFFFF]">5</p></div>
-            <div><p className="text-[#9ca3af]">Committed</p><p className="font-semibold text-[#FFFFFF]">$325K</p></div>
-            <div><p className="text-[#9ca3af]">Equity</p><p className="font-semibold text-[#FFFFFF]">27%</p></div>
+            <div>
+              <p className="text-[#9ca3af]">Investments</p>
+              <p className="font-semibold text-[#FFFFFF]">
+                {isLoading ? '...' : stats.totalInvestments}
+              </p>
+            </div>
+            <div>
+              <p className="text-[#9ca3af]">Committed</p>
+              <p className="font-semibold text-[#FFFFFF]">
+                {isLoading ? '...' : `$${stats.totalCommitted.toLocaleString()}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-[#9ca3af]">Equity</p>
+              <p className="font-semibold text-[#FFFFFF]">
+                {isLoading ? '...' : `${stats.totalEquity}%`}
+              </p>
+            </div>
           </div>
         </div>
 
