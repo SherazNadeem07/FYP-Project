@@ -46,13 +46,13 @@ export default function Content() {
               onClick={handleStartJourney}
               className="cursor-pointer inline-flex text-white bg-indigo-700 hover:bg-[#D0140F] hover:text-white border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-lg transition duration-300"
             >
-              Start Your Journey
+              Become Top Enterpreneur
             </button>
             <button
               onClick={handleBecomeInvestor}
               className="cursor-pointer ml-4 inline-flex text-indigo-700 bg-indigo-100 hover:bg-[#D0140F] hover:text-white border-0 py-3 px-8 focus:outline-none rounded-lg text-lg font-semibold shadow-md transition duration-300"
             >
-              Become an Investor
+              Start Your Journey
             </button>
           </div>
 
