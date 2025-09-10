@@ -809,7 +809,7 @@ app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => 
 });
 
 // Delete pitch
-app.put('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
+app.delete('/api/entrepreneur/pitches/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role !== 'entrepreneur') {
       return res.status(403).json({ error: 'Unauthorized' });
@@ -1132,6 +1132,102 @@ app.post('/api/investor/invest', authenticateToken, async (req, res) => {
   }
 });
 
+// Investor rejects a pitch
+app.post('/api/investor/pitches/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized: Only investors can reject pitches' });
+    }
+
+    const { id } = req.params;
+    const { message } = req.body;
+
+    // Verify pitch exists and is live
+    const pitchResult = await pool.query(
+      'SELECT id, user_id, name, status FROM pitches WHERE id = $1 AND status = \'Live\'',
+      [id]
+    );
+
+    if (pitchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pitch not found or not live' });
+    }
+
+    const pitch = pitchResult.rows[0];
+
+    // Check if investor has already interacted with this pitch
+    const existingInvestment = await pool.query(
+      'SELECT id, status FROM investments WHERE pitch_id = $1 AND investor_id = $2',
+      [id, req.user.id]
+    );
+
+    if (existingInvestment.rows.length > 0) {
+      return res.status(400).json({ error: `You have already ${existingInvestment.rows[0].status.toLowerCase()} this pitch` });
+    }
+
+    // Update pitch status to Rejected
+    await pool.query(
+      'UPDATE pitches SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['Rejected', id]
+    );
+
+    // Insert rejection record into investments table
+    const result = await pool.query(
+      `INSERT INTO investments (pitch_id, investor_id, amount, status)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, pitch_id AS "pitchId", investor_id AS "investorId", amount, status, created_at AS "dateInvested"`,
+      [id, req.user.id, 0, 'Rejected']
+    );
+
+    // Send notification to entrepreneur
+    const entrepreneurResult = await pool.query(
+      'SELECT u.email, u.full_name FROM users u WHERE u.id = $1',
+      [pitch.user_id]
+    );
+
+    if (entrepreneurResult.rows.length > 0) {
+      const entrepreneur = entrepreneurResult.rows[0];
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || 'sherazkhan48477@gmail.com',
+        to: entrepreneur.email,
+        subject: 'Pitch Rejected - InvestHub Idea Platform',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #D0140F; margin: 0;">InvestHub Idea Platform</h2>
+              <p style="color: #666; margin: 5px 0;">Pitch Rejection Notification</p>
+            </div>
+            <p>Hello ${entrepreneur.full_name},</p>
+            <p>Your pitch "${pitch.name}" has been rejected by an investor.</p>
+            <p>Please review the updated pitch details in your dashboard.</p>
+            ${message ? `<p><strong>Investor Message:</strong> ${message}</p>` : ''}
+            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              This is an automated message. Do not reply.<br>
+              © 2025 InvestHub Idea Platform. All rights reserved.
+            </p>
+          </div>
+        `
+      };
+
+      try {
+        await emailTransporter.sendMail(mailOptions);
+        console.log(`✅ Pitch rejection notification sent to: ${entrepreneur.email}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send rejection notification:', emailError.message);
+      }
+    }
+
+    console.log(`Pitch ${id} rejected by investor ${req.user.id}`);
+    res.status(200).json({
+      message: 'Pitch rejected successfully',
+      investment: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Reject pitch error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Investor rejects their own investment
 app.put('/api/investor/investments/:id/reject', authenticateToken, async (req, res) => {
   try {
@@ -1143,7 +1239,7 @@ app.put('/api/investor/investments/:id/reject', authenticateToken, async (req, r
 
     // Verify investment exists and belongs to the investor
     const investmentResult = await pool.query(
-      'SELECT i.id, i.pitch_id, i.amount, i.status, p.user_id FROM investments i JOIN pitches p ON i.pitch_id = p.id WHERE i.id = $1 AND i.investor_id = $2',
+      'SELECT i.id, i.pitch_id, i.amount, i.status, p.user_id, p.funding_goal FROM investments i JOIN pitches p ON i.pitch_id = p.id WHERE i.id = $1 AND i.investor_id = $2',
       [id, req.user.id]
     );
 
@@ -1161,6 +1257,25 @@ app.put('/api/investor/investments/:id/reject', authenticateToken, async (req, r
       'UPDATE investments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['Rejected', id]
     );
+
+    // Check if pitch should revert to Live
+    const totalInvestedResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0)::NUMERIC AS total_invested 
+       FROM investments 
+       WHERE pitch_id = $1 AND status = 'Accepted'`,
+      [investment.pitch_id]
+    );
+
+    const totalInvested = parseFloat(totalInvestedResult.rows[0].total_invested);
+    const fundingGoal = parseFloat(investment.funding_goal);
+
+    if (totalInvested < fundingGoal && investment.status === 'Funded') {
+      await pool.query(
+        'UPDATE pitches SET status = \'Live\' WHERE id = $1',
+        [investment.pitch_id]
+      );
+      console.log(`Pitch ${investment.pitch_id} status reverted to Live due to insufficient total investment after rejection`);
+    }
 
     // Send notification to entrepreneur
     const entrepreneurResult = await pool.query(

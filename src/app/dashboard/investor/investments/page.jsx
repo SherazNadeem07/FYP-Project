@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { getCookie } from 'cookies-next';
-import { FiDollarSign, FiPercent, FiClock, FiCheck, FiX, FiXCircle } from 'react-icons/fi';
+import { FiDollarSign, FiPercent, FiClock, FiCheck, FiX } from 'react-icons/fi';
 
 export default function InvestmentsPage() {
   const [investments, setInvestments] = useState([]);
@@ -23,7 +23,6 @@ export default function InvestmentsPage() {
       fetchInvestments(storedToken);
     }
 
-    // Listen for investment refresh event
     const handleRefresh = () => fetchInvestments(storedToken);
     window.addEventListener('refreshInvestments', handleRefresh);
     return () => window.removeEventListener('refreshInvestments', handleRefresh);
@@ -56,6 +55,44 @@ export default function InvestmentsPage() {
     }
   };
 
+  const handleConfirmInvestment = async (investmentId) => {
+    if (!confirm('Are you sure you want to confirm this investment?')) {
+      return;
+    }
+
+    try {
+      const authToken = token || getCookie('token');
+      if (!authToken) {
+        throw new Error('Authentication token not found');
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_BASE_URL}/api/investor/investments/${investmentId}/confirm`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to confirm investment');
+      }
+
+      alert('Investment confirmed successfully!');
+      fetchInvestments(authToken);
+      window.dispatchEvent(new Event('refreshInvestments'));
+    } catch (error) {
+      console.error('Error confirming investment:', error.message);
+      alert(`Failed to confirm investment: ${error.message}`);
+      if (error.message.includes('Authentication token not found') || error.message.includes('401')) {
+        router.push('/auth');
+      }
+    }
+  };
+
   const handleRejectInvestment = async (investmentId) => {
     if (!confirm('Are you sure you want to reject this investment? This action cannot be undone.')) {
       return;
@@ -83,8 +120,8 @@ export default function InvestmentsPage() {
       }
 
       alert('Investment rejected successfully!');
-      fetchInvestments(authToken); // Refresh investments
-      window.dispatchEvent(new Event('refreshInvestments')); // Trigger sidebar refresh
+      fetchInvestments(authToken);
+      window.dispatchEvent(new Event('refreshInvestments'));
     } catch (error) {
       console.error('Error rejecting investment:', error.message);
       alert(`Failed to reject investment: ${error.message}`);
@@ -98,7 +135,6 @@ export default function InvestmentsPage() {
     return <div className="min-h-screen flex items-center justify-center text-white">Loading investments...</div>;
   }
 
-  // Filter for Accepted investments for summary stats
   const acceptedInvestments = investments.filter(inv => inv.status === 'Accepted');
   const totalAmount = acceptedInvestments.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
   const totalEquity = acceptedInvestments.reduce((sum, inv) => sum + parseFloat(inv.equity || 0), 0);
@@ -175,15 +211,25 @@ export default function InvestmentsPage() {
                     {investment.dateInvested ? new Date(investment.dateInvested).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                    {investment.status === 'Accepted' && (
-                      <button
-                        onClick={() => handleRejectInvestment(investment.id)}
-                        className="text-[#D0140F] hover:text-[#B0100D] flex items-center"
-                        title="Reject this investment"
-                      >
-                        <FiXCircle className="mr-1" />
-                        Reject
-                      </button>
+                    {investment.status === 'Pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleConfirmInvestment(investment.id)}
+                          className="text-[#00FFA3] hover:text-[#00CC88] flex items-center"
+                          title="Confirm this investment"
+                        >
+                          <FiCheck className="mr-1" />
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => handleRejectInvestment(investment.id)}
+                          className="text-[#D0140F] hover:text-[#B0100D] flex items-center"
+                          title="Reject this investment"
+                        >
+                          <FiX className="mr-1" />
+                          Reject
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

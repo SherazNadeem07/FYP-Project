@@ -1,3 +1,4 @@
+// middleware/page.jsx (full updated code)
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
@@ -35,25 +36,8 @@ export async function middleware(request) {
   }
 
   if (token && path.startsWith("/dashboard")) {
-    try {
-      const userRole = await getUserRoleFromToken(token, API_BASE_URL);
-      console.log('Middleware - Validated role:', userRole);
-      
-      if (path.startsWith("/dashboard/entrepreneur") && userRole !== 'entrepreneur') {
-        console.log('Role mismatch: User is not entrepreneur');
-        return NextResponse.redirect(new URL(`/dashboard/${userRole}`, request.url));
-      }
-      
-      if (path.startsWith("/dashboard/investor") && userRole !== 'investor') {
-        console.log('Role mismatch: User is not investor');
-        return NextResponse.redirect(new URL(`/dashboard/${userRole}`, request.url));
-      }
-    } catch (error) {
-      console.error('Middleware token error:', error.message);
-      const response = NextResponse.redirect(new URL("/auth", request.url));
-      response.cookies.delete("token");
-      return response;
-    }
+    console.log('Token present for dashboard, allowing access');
+    return NextResponse.next();
   }
 
   return NextResponse.next();

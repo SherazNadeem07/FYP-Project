@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { getCookie } from 'cookies-next';
 import { FiUpload, FiDollarSign, FiPercent, FiBriefcase, FiUsers, FiClock, FiEdit, FiTrash } from 'react-icons/fi';
 import AnalyticsPage from './analytics/page';
+import { setCredentials, verifyToken } from '../../../Redux/Slices/AuthSlice';
 
 export default function EntrepreneurDashboard() {
   const [pitches, setPitches] = useState([]);
@@ -30,12 +31,18 @@ export default function EntrepreneurDashboard() {
   const [editingPitch, setEditingPitch] = useState(null);
   const [selectedPitch, setSelectedPitch] = useState(null);
   const router = useRouter();
+  const dispatch = useDispatch();
   const { token } = useSelector((state) => state.auth);
 
   useEffect(() => {
     setIsClient(true);
-    const storedToken = token || getCookie('token');
-    console.log('Token check - Cookie:', getCookie('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing');
+    let storedToken = token || getCookie('token') || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    console.log('Token check - Cookie:', getCookie('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing', 'LocalStorage:', storedToken ? 'Present' : 'Missing');
+    
+    if (storedToken && !token && typeof window !== 'undefined') {
+      dispatch(setCredentials({ token: storedToken }));
+    }
+
     if (!storedToken && isClient) {
       console.log('No token found, redirecting to login');
       router.push('/auth');
@@ -314,7 +321,7 @@ export default function EntrepreneurDashboard() {
           foundedYear: startupInfo.founded ? parseInt(startupInfo.founded) : null,
           location: startupInfo.location || null,
           revenue: startupInfo.revenue ? parseInt(startupInfo.revenue) : null,
-          status: editingPitch ? editingPitch.status : 'Live', // Retain status for edit, default to Live for new
+          status: editingPitch ? editingPitch.status : 'Live',
         }),
       });
 
@@ -355,7 +362,7 @@ export default function EntrepreneurDashboard() {
       description: pitch.description,
       fundingGoal: pitch.fundingGoal.toString(),
       equityOffered: pitch.equityOffered.toString(),
-      pitchDoc: null, // Files need to be re-uploaded
+      pitchDoc: null,
       pitchVideo: null,
     });
     window.scrollTo({ top: document.querySelector('#add-new-pitch').offsetTop, behavior: 'smooth' });
@@ -447,7 +454,7 @@ export default function EntrepreneurDashboard() {
               { icon: <FiBriefcase className="text-[#D0140F]" />, label: 'Industry', value: startupInfo.industry || 'Not set' },
               { icon: <FiClock className="text-[#D0140F]" />, label: 'Location', value: startupInfo.location || 'Not set' },
               { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Business Model', value: startupInfo.businessModel || 'Not set' },
-              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Revenue', value: startupInfo.revenue ? `$${startupInfo.revenue}` : 'Not set' },
+              { icon: <FiDollarSign className="text-[#D0140F]" />, label: 'Revenue', value: startupInfo.revenue ? `$${Number(startupInfo.revenue).toLocaleString()}` : 'Not set' },
             ].map((item, index) => (
               <div key={index} className="flex items-start space-x-3">
                 <div className="p-2 bg-[#2A2A2A] rounded-full">{item.icon}</div>
@@ -568,10 +575,10 @@ export default function EntrepreneurDashboard() {
                         {pitch.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${pitch.fundingGoal.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{pitch.equityOffered}%</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${Number(pitch.fundingGoal).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{Number(pitch.equityOffered)}%</td>
                     <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">{pitch.investorCount}</td>
-                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${pitch.totalInvested ? pitch.totalInvested.toLocaleString() : '0'}</td>
+                    <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${Number(pitch.totalInvested).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">
                       {new Date(pitch.dateSubmitted).toLocaleDateString()}
                     </td>
@@ -614,10 +621,10 @@ export default function EntrepreneurDashboard() {
               <div className="space-y-4">
                 <p><strong>Description:</strong> {selectedPitch.description}</p>
                 <p><strong>Status:</strong> {selectedPitch.status}</p>
-                <p><strong>Funding Goal:</strong> ${selectedPitch.fundingGoal.toLocaleString()}</p>
-                <p><strong>Equity Offered:</strong> {selectedPitch.equityOffered}%</p>
+                <p><strong>Funding Goal:</strong> ${Number(selectedPitch.fundingGoal).toLocaleString()}</p>
+                <p><strong>Equity Offered:</strong> {Number(selectedPitch.equityOffered)}%</p>
                 <p><strong>Investors:</strong> {selectedPitch.investorCount}</p>
-                <p><strong>Total Invested:</strong> ${selectedPitch.totalInvested ? selectedPitch.totalInvested.toLocaleString() : '0'}</p>
+                <p><strong>Total Invested:</strong> ${Number(selectedPitch.totalInvested).toLocaleString()}</p>
                 {selectedPitch.pitchDocUrl && (
                   <p><strong>Pitch Document:</strong> <a href={selectedPitch.pitchDocUrl} target="_blank" className="text-[#D0140F] hover:underline">View Document</a></p>
                 )}
@@ -629,7 +636,7 @@ export default function EntrepreneurDashboard() {
                 <p><strong>Team Size:</strong> {selectedPitch.teamSize || 'Not set'}</p>
                 <p><strong>Founded Year:</strong> {selectedPitch.foundedYear || 'Not set'}</p>
                 <p><strong>Location:</strong> {selectedPitch.location || 'Not set'}</p>
-                <p><strong>Revenue:</strong> {selectedPitch.revenue ? `$${selectedPitch.revenue.toLocaleString()}` : 'Not set'}</p>
+                <p><strong>Revenue:</strong> {selectedPitch.revenue ? `$${Number(selectedPitch.revenue).toLocaleString()}` : 'Not set'}</p>
               </div>
 
               <div className="mt-6">
@@ -652,12 +659,12 @@ export default function EntrepreneurDashboard() {
                         {investments.map((investment) => (
                           <tr key={investment.id} className="hover:bg-[#2A2A2A]">
                             <td className="px-4 py-3 text-sm font-medium text-white whitespace-nowrap">{investment.investorName}</td>
-                            <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${investment.amount.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-sm text-[#AAAAAA] whitespace-nowrap">${Number(investment.amount).toLocaleString()}</td>
                             <td className="px-4 py-3 text-sm whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 ${investment.status === 'Pending'
                                   ? 'bg-[#2A2A2A] text-[#FFB800] border border-[#FFB800]'
-                                  : investment.status === 'Approved'
+                                  : investment.status === 'Accepted'
                                     ? 'bg-[#2A2A2A] text-[#00FFA3] border border-[#00FFA3]'
                                     : 'bg-[#2A2A2A] text-[#D0140F] border border-[#D0140F]'
                                 }`}>

@@ -1,3 +1,4 @@
+// store.js (full updated code)
 import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
@@ -6,7 +7,7 @@ import featuresReducer from '../Slices/featureCardSlice';
 import enterpreneurReducer from "../Slices/enterpreneurSLice"
 
 const persistConfig = {
-  key: 'auth',
+  key: 'root',
   storage,
   whitelist: ['auth'], 
 };
@@ -17,7 +18,7 @@ export const store = configureStore({
   reducer: {
     auth: persistedReducer,
     features: featuresReducer, 
-    entrepreneurs:enterpreneurReducer
+    entrepreneurs: enterpreneurReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

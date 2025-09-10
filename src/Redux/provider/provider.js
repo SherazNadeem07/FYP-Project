@@ -1,4 +1,4 @@
-// Redux/provider/provider.js
+// provide.js (full updated code)
 'use client';
 
 import { Provider } from 'react-redux';

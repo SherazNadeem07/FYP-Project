@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { getCookie } from 'cookies-next';
-import { FiDollarSign, FiPercent, FiEye, FiMessageSquare } from 'react-icons/fi';
+import { FiDollarSign, FiPercent, FiEye, FiMessageSquare, FiXCircle } from 'react-icons/fi';
 import AnalyticsPage from './analytics/page';
 import InvestmentsPage from './investments/page';
+import { setCredentials, verifyToken } from '../../../Redux/Slices/AuthSlice';
 
 export default function InvestorDashboard() {
   const [pitches, setPitches] = useState([]);
@@ -14,19 +15,29 @@ export default function InvestorDashboard() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [userInvestments, setUserInvestments] = useState({});
   const router = useRouter();
+  const dispatch = useDispatch();
   const { token } = useSelector((state) => state.auth);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
     setIsClient(true);
-    const storedToken = token || getCookie('token');
+    let storedToken = token || getCookie('token') || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    console.log('Token check - Cookie:', getCookie('token') ? 'Present' : 'Missing', 'Redux:', token ? 'Present' : 'Missing', 'LocalStorage:', storedToken ? 'Present' : 'Missing');
+    
+    if (storedToken && !token && typeof window !== 'undefined') {
+      dispatch(setCredentials({ token: storedToken }));
+    }
+
     if (!storedToken && isClient) {
+      console.log('No token found, redirecting to login');
       router.push('/auth');
       return;
     }
     if (storedToken) {
       fetchPitches(storedToken);
+      fetchUserInvestments(storedToken);
     }
   }, [router, token, isClient]);
 
@@ -57,13 +68,81 @@ export default function InvestorDashboard() {
     }
   };
 
+  const fetchUserInvestments = async (authToken) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/investor/investments`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch investments');
+      }
+
+      const data = await response.json();
+      const investmentMap = {};
+      data.investments.forEach((inv) => {
+        investmentMap[inv.pitch_id] = { id: inv.id, status: inv.status };
+      });
+      setUserInvestments(investmentMap);
+    } catch (error) {
+      console.error('Error fetching user investments:', error.message);
+      alert(`Error fetching investments: ${error.message}`);
+      if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+        router.push('/auth');
+      }
+    }
+  };
+
   const handleInvest = (pitch) => {
     setSelectedPitch(pitch);
   };
 
+  const handleRejectPitch = async (pitchId) => {
+    if (!confirm('Are you sure you want to reject this pitch? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const authToken = token || getCookie('token');
+      if (!authToken) {
+        throw new Error('No token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/investor/pitches/${pitchId}/reject`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          message: message || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reject pitch');
+      }
+
+      alert('Pitch rejected successfully!');
+      fetchPitches(authToken);
+      fetchUserInvestments(authToken);
+      window.dispatchEvent(new Event('refreshInvestments'));
+    } catch (error) {
+      console.error('Error rejecting pitch:', error.message);
+      alert(`Failed to reject pitch: ${error.message}`);
+      if (error.message.includes('No token found') || error.message.includes('401')) {
+        router.push('/auth');
+      }
+    }
+  };
+
   const submitInvestment = async (e) => {
     e.preventDefault();
-    const amount = parseInt(investmentAmount, 10);
+    const amount = parseFloat(investmentAmount);
     if (isNaN(amount) || amount <= 0) {
       alert('Please enter a valid investment amount');
       return;
@@ -90,11 +169,13 @@ export default function InvestorDashboard() {
       });
 
       if (response.ok) {
-        alert('Investment submitted successfully!');
+        alert('Investment submitted successfully.');
         setSelectedPitch(null);
         setInvestmentAmount('');
         setMessage('');
         fetchPitches(authToken);
+        fetchUserInvestments(authToken);
+        window.dispatchEvent(new Event('refreshInvestments'));
       } else {
         const errorData = await response.json();
         alert(`Failed to submit investment: ${errorData.error || 'Unknown error'}`);
@@ -128,18 +209,20 @@ export default function InvestorDashboard() {
               <div className="flex justify-between mb-3 text-sm">
                 <div className="flex items-center text-[#DDDDDD]">
                   <FiDollarSign className="mr-1 text-[#D0140F]" />
-                  <span>${pitch.fundingGoal.toLocaleString()}</span>
+                  <span>${(pitch.fundingGoal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center text-[#DDDDDD]">
                   <FiPercent className="mr-1 text-[#D0140F]" />
-                  <span>{pitch.equityOffered}%</span>
+                  <span>{(pitch.equityOffered || 0)}%</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-center mb-4 text-xs sm:text-sm">
                 <span className="text-[#888888]">By {pitch.entrepreneur}</span>
                 <span className={`px-2 py-1 rounded-full border 
-                  ${pitch.status === 'Live' ? 'border-[#00FFA3] text-[#00FFA3]' : 'border-[#FFB800] text-[#FFB800]'}
+                  ${pitch.status === 'Live' ? 'border-[#00FFA3] text-[#00FFA3]' : 
+                    pitch.status === 'Rejected' ? 'border-[#D0140F] text-[#D0140F]' : 
+                    'border-[#FFB800] text-[#FFB800]'}
                   bg-[#2A2A2A]`}>
                   {pitch.status}
                 </span>
@@ -161,12 +244,33 @@ export default function InvestorDashboard() {
               </div>
 
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mt-4">
-                <button 
-                  onClick={() => handleInvest(pitch)}
-                  className="bg-[#D0140F] text-white px-4 py-2 rounded-lg hover:bg-[#B0100D] text-sm w-full sm:w-auto"
-                >
-                  Invest Now
-                </button>
+                {userInvestments[pitch.id] ? (
+                  <div className="text-[#AAAAAA] text-sm">
+                    {userInvestments[pitch.id].status === 'Pending' ? (
+                      <span>Investment Pending</span>
+                    ) : userInvestments[pitch.id].status === 'Accepted' ? (
+                      <span>Investment Accepted</span>
+                    ) : (
+                      <span>Pitch Rejected</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button 
+                      onClick={() => handleInvest(pitch)}
+                      className="bg-[#D0140F] text-white px-4 py-2 rounded-lg hover:bg-[#B0100D] text-sm w-full sm:w-auto"
+                    >
+                      Invest Now
+                    </button>
+                    <button 
+                      onClick={() => handleRejectPitch(pitch.id)}
+                      className="bg-[#3A3A3A] text-[#D0140F] px-4 py-2 rounded-lg hover:bg-[#2A2A2A] text-sm w-full sm:w-auto flex items-center justify-center"
+                    >
+                      <FiXCircle className="mr-1" />
+                      Reject
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-center sm:justify-end gap-3 text-sm text-[#AAAAAA]">
                   <span className="flex items-center"><FiEye className="mr-1" />{pitch.investorCount}</span>
                   <span className="flex items-center"><FiMessageSquare className="mr-1" />0</span>
