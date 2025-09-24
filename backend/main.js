@@ -1349,6 +1349,216 @@ app.get('/api/investor/investments', authenticateToken, async (req, res) => {
   }
 });
 
+// Get conversations for entrepreneur
+app.get('/api/entrepreneur/conversations', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'entrepreneur') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(
+      `SELECT DISTINCT ON (i.investor_id)
+        i.investor_id AS "investorId",
+        u.full_name AS "investorName",
+        u.email AS "investorEmail",
+        u.title AS "investorTitle",
+        p.name AS "pitchName",
+        p.id AS "pitchId",
+        (SELECT message_text FROM messages 
+         WHERE (sender_id = i.investor_id OR receiver_id = i.investor_id) 
+         AND pitch_id = p.id 
+         ORDER BY created_at DESC LIMIT 1) AS "lastMessage",
+        (SELECT created_at FROM messages 
+         WHERE (sender_id = i.investor_id OR receiver_id = i.investor_id) 
+         AND pitch_id = p.id 
+         ORDER BY created_at DESC LIMIT 1) AS "lastMessageTime",
+        (SELECT COUNT(*) FROM messages 
+         WHERE receiver_id = $1 
+         AND sender_id = i.investor_id 
+         AND is_read = false) AS "unreadCount"
+      FROM investments i
+      JOIN users u ON i.investor_id = u.id
+      JOIN pitches p ON i.pitch_id = p.id
+      WHERE p.user_id = $1
+      ORDER BY i.investor_id, i.created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({ conversations: result.rows });
+  } catch (err) {
+    console.error('Get conversations error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get conversations for investor
+app.get('/api/investor/conversations', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'investor') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(
+      `SELECT DISTINCT ON (p.user_id)
+        p.user_id AS "entrepreneurId",
+        u.full_name AS "entrepreneurName",
+        u.email AS "entrepreneurEmail",
+        u.title AS "entrepreneurTitle",
+        p.name AS "pitchName",
+        p.id AS "pitchId",
+        p.description AS "pitchDescription",
+        (SELECT message_text FROM messages 
+         WHERE (sender_id = p.user_id OR receiver_id = p.user_id) 
+         AND pitch_id = p.id 
+         ORDER BY created_at DESC LIMIT 1) AS "lastMessage",
+        (SELECT created_at FROM messages 
+         WHERE (sender_id = p.user_id OR receiver_id = p.user_id) 
+         AND pitch_id = p.id 
+         ORDER BY created_at DESC LIMIT 1) AS "lastMessageTime",
+        (SELECT COUNT(*) FROM messages 
+         WHERE receiver_id = $1 
+         AND sender_id = p.user_id 
+         AND is_read = false) AS "unreadCount"
+      FROM pitches p
+      JOIN users u ON p.user_id = u.id
+      JOIN investments i ON p.id = i.pitch_id
+      WHERE i.investor_id = $1
+      ORDER BY p.user_id, i.created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({ conversations: result.rows });
+  } catch (err) {
+    console.error('Get investor conversations error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get messages for a specific conversation
+app.get('/api/messages/:pitchId/:otherUserId', authenticateToken, async (req, res) => {
+  try {
+    const { pitchId, otherUserId } = req.params;
+    const userId = req.user.id;
+
+    // Verify user has access to this conversation
+    const accessCheck = await pool.query(
+      `SELECT 1 FROM pitches p 
+       LEFT JOIN investments i ON p.id = i.pitch_id 
+       WHERE p.id = $1 AND (p.user_id = $2 OR i.investor_id = $2)`,
+      [pitchId, userId]
+    );
+
+    if (accessCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        m.id,
+        m.sender_id AS "senderId",
+        m.receiver_id AS "receiverId",
+        m.message_text AS "text",
+        m.is_read AS "isRead",
+        m.created_at AS "time",
+        u.full_name AS "senderName"
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.pitch_id = $1 
+      AND ((m.sender_id = $2 AND m.receiver_id = $3) 
+           OR (m.sender_id = $3 AND m.receiver_id = $2))
+      ORDER BY m.created_at ASC`,
+      [pitchId, userId, otherUserId]
+    );
+
+    // Mark messages as read
+    await pool.query(
+      `UPDATE messages 
+       SET is_read = true 
+       WHERE pitch_id = $1 
+       AND receiver_id = $2 
+       AND sender_id = $3 
+       AND is_read = false`,
+      [pitchId, userId, otherUserId]
+    );
+
+    res.json({ messages: result.rows });
+  } catch (err) {
+    console.error('Get messages error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Send a message
+app.post('/api/messages/send', authenticateToken, async (req, res) => {
+  try {
+    const { pitchId, receiverId, messageText } = req.body;
+    const senderId = req.user.id;
+
+    if (!pitchId || !receiverId || !messageText) {
+      return res.status(400).json({ error: 'Pitch ID, receiver ID, and message text are required' });
+    }
+
+    // Verify user has access to this conversation
+    const accessCheck = await pool.query(
+      `SELECT 1 FROM pitches p 
+       LEFT JOIN investments i ON p.id = i.pitch_id 
+       WHERE p.id = $1 AND (p.user_id = $2 OR i.investor_id = $2)`,
+      [pitchId, senderId]
+    );
+
+    if (accessCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO messages (pitch_id, sender_id, receiver_id, message_text)
+       VALUES ($1, $2, $3, $4)
+       RETURNING 
+         id,
+         sender_id AS "senderId",
+         receiver_id AS "receiverId",
+         message_text AS "text",
+         is_read AS "isRead",
+         created_at AS "time"`,
+      [pitchId, senderId, receiverId, messageText]
+    );
+
+    // Get sender name for response
+    const senderResult = await pool.query(
+      'SELECT full_name FROM users WHERE id = $1',
+      [senderId]
+    );
+
+    const message = {
+      ...result.rows[0],
+      senderName: senderResult.rows[0].full_name
+    };
+
+    res.status(201).json({
+      message: 'Message sent successfully',
+      sentMessage: message
+    });
+  } catch (err) {
+    console.error('Send message error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get unread message count
+app.get('/api/messages/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT COUNT(*) AS unread_count FROM messages WHERE receiver_id = $1 AND is_read = false',
+      [req.user.id]
+    );
+
+    res.json({ unreadCount: parseInt(result.rows[0].unread_count) });
+  } catch (err) {
+    console.error('Get unread count error:', err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

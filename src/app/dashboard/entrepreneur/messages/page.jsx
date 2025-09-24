@@ -1,67 +1,147 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiSend, FiBell, FiMessageSquare } from 'react-icons/fi';
+import { FiSend, FiBell, FiMessageSquare, FiUser, FiBriefcase } from 'react-icons/fi';
+import { useSelector } from 'react-redux';
+import { getCookie } from 'cookies-next';
 
-export default function MessagesPage() {
-  const [conversations, setConversations] = useState([
-    { id: 1, name: 'Investor One', lastMessage: 'Hi there! I liked your pitch', unread: true },
-    { id: 2, name: 'Investor Two', lastMessage: 'Can we schedule a meeting?', unread: false },
-  ]);
-
+export default function EntrepreneurMessagesPage() {
+  const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [notifications, setNotifications] = useState(2);
+  const [notifications, setNotifications] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const { token } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    fetchConversations();
+    fetchUnreadCount();
+  }, []);
 
   useEffect(() => {
     if (activeConversation) {
-      setMessages([
-        { id: 1, sender: 'Investor One', text: 'Hi there! I liked your pitch', time: '10:30 AM', isMe: false },
-        { id: 2, sender: 'Me', text: 'Thank you! Would you like to know more?', time: '10:32 AM', isMe: true },
-      ]);
+      fetchMessages();
     }
   }, [activeConversation]);
 
-  const handleSendMessage = (e) => {
+  const fetchConversations = async () => {
+    try {
+      const authToken = token || getCookie('token');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${API_BASE_URL}/api/entrepreneur/conversations`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data.conversations || []);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!activeConversation) return;
+
+    try {
+      const authToken = token || getCookie('token');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/messages/${activeConversation.pitchId}/${activeConversation.investorId}`,
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+        fetchUnreadCount(); // Refresh unread count after reading messages
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const authToken = token || getCookie('token');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${API_BASE_URL}/api/messages/unread-count`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !activeConversation) return;
 
-    const newMessage = {
-      id: messages.length + 1,
-      sender: 'Me',
-      text: message,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-    };
+    try {
+      const authToken = token || getCookie('token');
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          pitchId: activeConversation.pitchId,
+          receiverId: activeConversation.investorId,
+          messageText: message,
+        }),
+      });
 
-    setMessages([...messages, newMessage]);
-    setMessage('');
-
-    setTimeout(() => {
-      const reply = {
-        id: messages.length + 2,
-        sender: activeConversation.name,
-        text: 'Thanks for your response. Let me check...',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isMe: false,
-      };
-      setMessages((prev) => [...prev, reply]);
-      setNotifications((prev) => prev + 1);
-    }, 1000);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages([...messages, data.sentMessage]);
+        setMessage('');
+        fetchConversations(); // Refresh conversations to update last message
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
-  const markAsRead = (convoId) => {
-    setConversations(conversations.map((convo) =>
-      convo.id === convoId ? { ...convo, unread: false } : convo
-    ));
-    setNotifications((prev) => prev - 1);
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        Loading messages...
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#2C2C2C] p-4 sm:p-6 rounded-lg shadow-sm text-[#E8E8E8] min-h-[80vh]">
       {/* Header */}
       <div className="flex justify-between items-center mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Messages</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Messages</h1>
         <div className="relative">
           <FiBell className="text-2xl text-[#cecbcb]" />
           {notifications > 0 && (
@@ -74,35 +154,53 @@ export default function MessagesPage() {
 
       {/* Main Layout */}
       <div className="flex flex-col md:flex-row gap-4 h-[70vh]">
-        {/* Left Sidebar */}
+        {/* Left Sidebar - Conversations */}
         <div className="md:w-1/3 w-full border border-[#3F3F3F] rounded-lg overflow-y-auto">
           <div className="space-y-2 p-4">
-            {conversations.map((convo) => (
-              <div
-                key={convo.id}
-                className={`p-3 rounded-lg cursor-pointer transition ${
-                  activeConversation?.id === convo.id
-                    ? 'bg-[#3A3A3A]'
-                    : 'hover:bg-[#4A4A4A]'
-                }`}
-                onClick={() => {
-                  setActiveConversation(convo);
-                  markAsRead(convo.id);
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium text-white">{convo.name}</h3>
-                  {convo.unread && <span className="h-2 w-2 bg-[#D0140F] rounded-full"></span>}
-                </div>
-                <p
-                  className={`text-sm truncate ${
-                    convo.unread ? 'font-medium text-[#E8E8E8]' : 'text-[#9ca3af]'
-                  }`}
-                >
-                  {convo.lastMessage}
-                </p>
+            {conversations.length === 0 ? (
+              <div className="text-center py-8 text-[#7F7F7F]">
+                <FiMessageSquare className="text-3xl mx-auto mb-2" />
+                <p>No conversations yet</p>
+                <p className="text-sm">Investors will appear here when they interact with your pitches</p>
               </div>
-            ))}
+            ) : (
+              conversations.map((convo) => (
+                <div
+                  key={`${convo.pitchId}-${convo.investorId}`}
+                  className={`p-3 rounded-lg cursor-pointer transition ${
+                    activeConversation?.investorId === convo.investorId && 
+                    activeConversation?.pitchId === convo.pitchId
+                      ? 'bg-[#3A3A3A]'
+                      : 'hover:bg-[#4A4A4A]'
+                  }`}
+                  onClick={() => setActiveConversation(convo)}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center space-x-2">
+                      <FiUser className="text-[#D0140F]" />
+                      <h3 className="font-medium text-white">{convo.investorName}</h3>
+                    </div>
+                    {convo.unreadCount > 0 && (
+                      <span className="bg-[#D0140F] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {convo.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <FiBriefcase className="text-xs text-[#cecbcb]" />
+                    <p className="text-sm text-[#cecbcb] truncate">{convo.pitchName}</p>
+                  </div>
+                  <p className="text-sm truncate text-[#9ca3af]">
+                    {convo.lastMessage || 'No messages yet'}
+                  </p>
+                  {convo.lastMessageTime && (
+                    <p className="text-xs text-[#575757] mt-1">
+                      {formatTime(convo.lastMessageTime)}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -112,32 +210,47 @@ export default function MessagesPage() {
             <>
               {/* Chat Header */}
               <div className="border-b border-[#3F3F3F] pb-2 mb-4">
-                <h2 className="text-lg font-semibold">{activeConversation.name}</h2>
+                <h2 className="text-lg font-semibold text-white">{activeConversation.investorName}</h2>
+                <p className="text-sm text-[#cecbcb]">{activeConversation.pitchName}</p>
+                {activeConversation.investorTitle && (
+                  <p className="text-xs text-[#575757]">{activeConversation.investorTitle}</p>
+                )}
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[80%] sm:max-w-md px-4 py-2 rounded-lg ${
-                        msg.isMe ? 'bg-[#D0140F] text-white' : 'bg-[#383838]'
-                      }`}
-                    >
-                      {!msg.isMe && (
-                        <p className="text-xs font-medium text-[#cecbcb]">{msg.sender}</p>
-                      )}
-                      <p>{msg.text}</p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          msg.isMe ? 'text-[#cecbcb]' : 'text-[#7F7F7F]'
+                {messages.length === 0 ? (
+                  <div className="text-center py-8 text-[#7F7F7F]">
+                    <p>No messages yet</p>
+                    <p className="text-sm">Start a conversation with {activeConversation.investorName}</p>
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.senderId === activeConversation.investorId ? 'justify-start' : 'justify-end'}`}>
+                      <div
+                        className={`max-w-[80%] sm:max-w-md px-4 py-2 rounded-lg ${
+                          msg.senderId === activeConversation.investorId 
+                            ? 'bg-[#383838]' 
+                            : 'bg-[#D0140F] text-white'
                         }`}
                       >
-                        {msg.time}
-                      </p>
+                        {msg.senderId === activeConversation.investorId && (
+                          <p className="text-xs font-medium text-[#cecbcb]">{msg.senderName}</p>
+                        )}
+                        <p>{msg.text}</p>
+                        <p
+                          className={`text-xs mt-1 ${
+                            msg.senderId === activeConversation.investorId 
+                              ? 'text-[#7F7F7F]' 
+                              : 'text-[#FFBFBF]'
+                          }`}
+                        >
+                          {formatTime(msg.time)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {/* Message Input */}
