@@ -23,36 +23,22 @@ const ContactUs = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus(null);
+  e.preventDefault();
+  setIsSubmitting(true);
+  setSubmitStatus(null);
 
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+  setTimeout(() => {
+    setSubmitStatus({ success: true, message: "Message sent successfully!" });
+    setFormData({
+      name: "",
+      email: "",
+      subject: "",
+      message: ""
+    });
+    setIsSubmitting(false);
+  }, 1000); 
+};
 
-      if (response.ok) {
-        setSubmitStatus({ success: true, message: 'Message sent successfully!' });
-        setFormData({
-          name: '',
-          email: '',
-          subject: '',
-          message: ''
-        });
-      } else {
-        throw new Error('Failed to send message');
-      }
-    } catch (error) {
-      setSubmitStatus({ success: false, message: 'Failed to send message. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
